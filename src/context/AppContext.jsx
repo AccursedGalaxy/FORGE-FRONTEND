@@ -63,29 +63,21 @@ export function AppProvider({ children }) {
     }
   }
 
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function _syncStats(projectId, updatedBoard) {
+    const counts = { todo: 0, inProgress: 0, review: 0, done: 0 };
+    for (const col of updatedBoard.columns) {
+      if (col.id in counts) counts[col.id] = col.cards.length;
+    }
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const progress = total === 0 ? 0 : Math.round((counts.done / total) * 100);
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, tasks: counts, progress } : p))
+    );
+  }
+
   // ── Initial load + SSE ───────────────────────────────────────────────────
-
-  useEffect(() => {
-    api
-      .get("/api/projects")
-      .then((data) => {
-        setProjects(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        showError(err.message || "Failed to load projects");
-        setLoading(false);
-      });
-
-    const es = new EventSource("/api/events");
-    es.onmessage = (e) => {
-      const { type, data } = JSON.parse(e.data);
-      handleSSEEvent(type, data);
-    };
-    es.onerror = () => console.warn("[sse] connection error");
-
-    return () => es.close();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSSEEvent(type, data) {
     switch (type) {
@@ -243,19 +235,27 @@ export function AppProvider({ children }) {
     }
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    api
+      .get("/api/projects")
+      .then((data) => {
+        setProjects(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        showError(err.message || "Failed to load projects");
+        setLoading(false);
+      });
 
-  function _syncStats(projectId, updatedBoard) {
-    const counts = { todo: 0, inProgress: 0, review: 0, done: 0 };
-    for (const col of updatedBoard.columns) {
-      if (col.id in counts) counts[col.id] = col.cards.length;
-    }
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    const progress = total === 0 ? 0 : Math.round((counts.done / total) * 100);
-    setProjects((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, tasks: counts, progress } : p))
-    );
-  }
+    const es = new EventSource("/api/events");
+    es.onmessage = (e) => {
+      const { type, data } = JSON.parse(e.data);
+      handleSSEEvent(type, data);
+    };
+    es.onerror = () => console.warn("[sse] connection error");
+
+    return () => es.close();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Projects ─────────────────────────────────────────────────────────────
 
@@ -431,6 +431,7 @@ export function AppProvider({ children }) {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used inside <AppProvider>");

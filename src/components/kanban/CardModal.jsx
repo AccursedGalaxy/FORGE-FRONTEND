@@ -282,7 +282,7 @@ export function CardModal({ card, colId, projectId, project, onClose, onUpdate, 
             )}
           </div>
 
-          {card.claudeNotes && (
+          {card.claudeNotes && !card.claudeNotes.includes("⚡") && !card.claudeNotes.includes("💭") && (
             <div
               style={{
                 background: "rgba(99,102,241,0.04)",

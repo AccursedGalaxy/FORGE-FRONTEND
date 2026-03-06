@@ -3,7 +3,7 @@ import { Modal } from "../Modal";
 import { FormField, Input, Textarea, Select } from "../FormField";
 import { tagColor } from "../../utils/helpers";
 
-export function AddCardModal({ colId, onClose, onAdd }) {
+export function AddCardModal({ onClose, onAdd }) {
   const [form, setForm] = useState({
     title: "",
     priority: "medium",

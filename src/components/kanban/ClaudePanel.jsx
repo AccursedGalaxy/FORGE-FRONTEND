@@ -1,11 +1,11 @@
 import { useRef, useEffect, useState } from "react";
 import { useApp } from "../../context/AppContext";
 
-export function ClaudePanel({ card, projectId }) {
+export function ClaudePanel({ card }) {
   const { claudeState } = useApp();
   const state = claudeState[card.id] ?? {
     status: card.claudeStatus ?? null,
-    chunks: card.claudeNotes ? [card.claudeNotes] : [],
+    chunks: [],
     sessionId: card.claudeSessionId ?? null,
   };
 
@@ -24,7 +24,7 @@ export function ClaudePanel({ card, projectId }) {
   // Clear pending once SSE confirms claude started or errored
   useEffect(() => {
     if (pending && state.status !== prevStatusRef.current) {
-      setPending(false);
+      setPending(false); // eslint-disable-line react-hooks/set-state-in-effect
     }
     prevStatusRef.current = state.status;
   }, [state.status, pending]);
