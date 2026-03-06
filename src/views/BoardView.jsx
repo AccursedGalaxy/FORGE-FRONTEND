@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { KanbanColumn } from "../components/kanban/KanbanColumn";
 import { CardModal } from "../components/kanban/CardModal";
@@ -9,28 +9,103 @@ export function BoardView({ projectId, onBack }) {
   const project = projects.find((p) => p.id === projectId);
   const board = getBoard(projectId);
 
-  const [dragging, setDragging] = useState(null); // { cardId, colId }
-  const [dragOver, setDragOver] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null); // { card, colId }
   const [addingToCol, setAddingToCol] = useState(null);
 
-  function onDragStart(e, cardId, colId) {
+  // ── Drag state ────────────────────────────────────────────────────────────
+  const [dragging, setDragging] = useState(null); // { cardId, colId }
+  const [dragOver, setDragOver] = useState(null);  // card.id | "col:colId" | null
+  const ghostRef = useRef(null);
+  const dragRef = useRef(null); // { cardId, colId, offsetX, offsetY }
+
+  function onDragStart(clientX, clientY, el, cardId, colId) {
+    const rect = el.getBoundingClientRect();
+
+    // Clone the card DOM node as a drag ghost
+    const ghost = el.cloneNode(true);
+    ghost.style.position = "fixed";
+    ghost.style.left = rect.left + "px";
+    ghost.style.top = rect.top + "px";
+    ghost.style.width = rect.width + "px";
+    ghost.style.margin = "0";
+    ghost.style.pointerEvents = "none";
+    ghost.style.zIndex = "9999";
+    ghost.style.opacity = "0.9";
+    ghost.style.transform = "rotate(1.5deg) scale(1.03)";
+    ghost.style.transition = "none";
+    ghost.style.boxShadow = "0 20px 48px rgba(0,0,0,0.7)";
+    document.body.appendChild(ghost);
+
+    ghostRef.current = ghost;
+    dragRef.current = {
+      cardId,
+      colId,
+      offsetX: clientX - rect.left,
+      offsetY: clientY - rect.top,
+    };
+    document.body.style.cursor = "grabbing";
     setDragging({ cardId, colId });
-    e.dataTransfer.effectAllowed = "move";
   }
 
-  function onDrop(e, type, targetCardId, targetColId) {
-    if (type === "over") {
-      setDragOver(targetCardId || targetColId);
-      return;
+  function onDragMove(clientX, clientY) {
+    const ghost = ghostRef.current;
+    const dr = dragRef.current;
+    if (!ghost || !dr) return;
+
+    ghost.style.left = (clientX - dr.offsetX) + "px";
+    ghost.style.top = (clientY - dr.offsetY) + "px";
+
+    // Hit-test under ghost (hide it momentarily so it doesn't block elementFromPoint)
+    ghost.style.visibility = "hidden";
+    const el = document.elementFromPoint(clientX, clientY);
+    ghost.style.visibility = "";
+
+    if (el) {
+      const cardEl = el.closest("[data-card-id]");
+      const colEl = el.closest("[data-col-id]");
+      if (cardEl && cardEl.dataset.cardId !== dr.cardId) {
+        setDragOver(cardEl.dataset.cardId);
+      } else if (colEl) {
+        setDragOver("col:" + colEl.dataset.colId);
+      } else {
+        setDragOver(null);
+      }
+    } else {
+      setDragOver(null);
     }
-    if (!dragging) return;
-    const { cardId, colId: fromColId } = dragging;
-    if (cardId === targetCardId) return;
-    moveCard(projectId, cardId, fromColId, targetColId, targetCardId);
+  }
+
+  function onDragEnd(clientX, clientY) {
+    const ghost = ghostRef.current;
+    const dr = dragRef.current;
+    if (!ghost || !dr) return;
+
+    ghost.style.visibility = "hidden";
+    const el = document.elementFromPoint(clientX, clientY);
+    ghost.remove();
+    ghostRef.current = null;
+    dragRef.current = null;
+    document.body.style.cursor = "";
+
+    if (el) {
+      const cardEl = el.closest("[data-card-id]");
+      const colEl = el.closest("[data-col-id]");
+
+      if (cardEl && cardEl.dataset.cardId !== dr.cardId) {
+        // Drop onto a specific card — insert before it
+        moveCard(projectId, dr.cardId, dr.colId, cardEl.dataset.colId, cardEl.dataset.cardId);
+      } else if (colEl) {
+        // Drop onto column area — append to end
+        const toColId = colEl.dataset.colId;
+        moveCard(projectId, dr.cardId, dr.colId, toColId, null);
+      }
+    }
+
     setDragging(null);
     setDragOver(null);
   }
+
+  // ── Card actions ──────────────────────────────────────────────────────────
 
   function handleAddCard(colId, cardData) {
     addCard(projectId, colId, cardData);
@@ -38,10 +113,14 @@ export function BoardView({ projectId, onBack }) {
 
   function handleUpdateCard(pid, cardId, changes) {
     updateCard(pid, cardId, changes);
-    // Reflect changes in the selected card state immediately
     setSelectedCard((prev) =>
       prev ? { ...prev, card: { ...prev.card, ...changes } } : null
     );
+  }
+
+  function handleMoveCard(pid, cardId, fromColId, toColId) {
+    moveCard(pid, cardId, fromColId, toColId, null);
+    setSelectedCard((prev) => prev ? { ...prev, colId: toColId } : null);
   }
 
   function handleDeleteCard(pid, cardId) {
@@ -157,8 +236,6 @@ export function BoardView({ projectId, onBack }) {
 
       {/* Board */}
       <div
-        onDragOver={(e) => e.preventDefault()}
-        onDragEnd={() => { setDragging(null); setDragOver(null); }}
         style={{
           flex: 1,
           overflowX: "auto",
@@ -173,9 +250,10 @@ export function BoardView({ projectId, onBack }) {
             key={col.id}
             col={col}
             onDragStart={onDragStart}
-            onDrop={onDrop}
-            dragOverCard={dragOver}
-            draggingCard={dragging?.cardId}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
+            dragOver={dragOver}
+            draggingCardId={dragging?.cardId}
             onCardClick={(card, colId) => setSelectedCard({ card, colId })}
             onAddCard={(colId) => setAddingToCol(colId)}
           />
@@ -189,6 +267,7 @@ export function BoardView({ projectId, onBack }) {
           projectId={projectId}
           onClose={() => setSelectedCard(null)}
           onUpdate={handleUpdateCard}
+          onMove={handleMoveCard}
           onDelete={handleDeleteCard}
         />
       )}

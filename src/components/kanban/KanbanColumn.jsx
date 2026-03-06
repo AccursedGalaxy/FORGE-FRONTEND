@@ -1,13 +1,20 @@
-import { useState } from "react";
 import { KanbanCard } from "./KanbanCard";
 import { COL_ACCENTS } from "../../utils/helpers";
 
-export function KanbanColumn({ col, onDragStart, onDrop, dragOverCard, draggingCard, onCardClick, onAddCard }) {
-  const [hover, setHover] = useState(false);
+export function KanbanColumn({
+  col,
+  onDragStart, onDragMove, onDragEnd,
+  dragOver, draggingCardId,
+  onCardClick, onAddCard,
+}) {
   const accent = COL_ACCENTS[col.id] || "#6366f1";
+  const isColDragOver = dragOver === "col:" + col.id;
 
   return (
-    <div style={{ width: 272, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+    <div
+      data-col-id={col.id}
+      style={{ width: 272, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}
+    >
       {/* Header */}
       <div
         style={{
@@ -18,15 +25,7 @@ export function KanbanColumn({ col, onDragStart, onDrop, dragOverCard, draggingC
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: accent,
-              flexShrink: 0,
-            }}
-          />
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: accent, flexShrink: 0 }} />
           <span
             style={{
               fontSize: 11,
@@ -74,8 +73,6 @@ export function KanbanColumn({ col, onDragStart, onDrop, dragOverCard, draggingC
 
       {/* Cards */}
       <div
-        onDragOver={(e) => { e.preventDefault(); onDrop(e, "over", null, col.id); }}
-        onDrop={(e) => onDrop(e, "drop", null, col.id)}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -91,26 +88,31 @@ export function KanbanColumn({ col, onDragStart, onDrop, dragOverCard, draggingC
             card={card}
             colId={col.id}
             onDragStart={onDragStart}
-            onDrop={onDrop}
-            isDragOver={dragOverCard === card.id}
-            isDragging={draggingCard === card.id}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
+            isDragOver={dragOver === card.id}
+            isDragging={draggingCardId === card.id}
             onClick={() => onCardClick(card, col.id)}
           />
         ))}
-        {col.cards.length === 0 && (
+
+        {/* Drop zone — always visible when dragging over column, or when empty */}
+        {(col.cards.length === 0 || isColDragOver) && (
           <div
             style={{
-              border: "1px dashed rgba(255,255,255,0.07)",
+              border: `1px dashed ${isColDragOver ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.07)"}`,
+              background: isColDragOver ? "rgba(99,102,241,0.06)" : "transparent",
               borderRadius: 10,
-              height: 64,
+              height: col.cards.length === 0 ? 64 : 32,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "rgba(255,255,255,0.2)",
+              color: isColDragOver ? "rgba(99,102,241,0.8)" : "rgba(255,255,255,0.2)",
               fontSize: 12,
+              transition: "all 0.15s",
             }}
           >
-            Drop here
+            {col.cards.length === 0 ? "Drop here" : ""}
           </div>
         )}
       </div>

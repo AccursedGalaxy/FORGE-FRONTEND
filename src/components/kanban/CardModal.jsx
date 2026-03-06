@@ -5,12 +5,23 @@ import { Avatar } from "../Avatar";
 import { PriorityBadge } from "../PriorityBadge";
 import { tagColor } from "../../utils/helpers";
 
-export function CardModal({ card, colId, projectId, onClose, onUpdate, onDelete }) {
+const COL_LABELS = {
+  todo: "Backlog",
+  inProgress: "In Progress",
+  review: "In Review",
+  done: "Done",
+};
+
+export function CardModal({ card, colId, projectId, onClose, onUpdate, onMove, onDelete }) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ ...card });
+  const [form, setForm] = useState({ ...card, colId });
 
   function handleSave() {
-    onUpdate(projectId, card.id, form);
+    const { colId: newColId, ...cardChanges } = form;
+    onUpdate(projectId, card.id, cardChanges);
+    if (newColId !== colId) {
+      onMove(projectId, card.id, colId, newColId);
+    }
     setEditing(false);
   }
 
@@ -66,6 +77,17 @@ export function CardModal({ card, colId, projectId, onClose, onUpdate, onDelete 
           </FormField>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <FormField label="Status">
+              <Select
+                value={form.colId}
+                onChange={(e) => setForm((f) => ({ ...f, colId: e.target.value }))}
+              >
+                <option value="todo">Backlog</option>
+                <option value="inProgress">In Progress</option>
+                <option value="review">In Review</option>
+                <option value="done">Done</option>
+              </Select>
+            </FormField>
             <FormField label="Priority">
               <Select
                 value={form.priority}
@@ -76,15 +98,16 @@ export function CardModal({ card, colId, projectId, onClose, onUpdate, onDelete 
                 <option value="low">Low</option>
               </Select>
             </FormField>
-            <FormField label="Assignee">
-              <Input
-                value={form.assignee}
-                onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
-                placeholder="Initials"
-                maxLength={3}
-              />
-            </FormField>
           </div>
+
+          <FormField label="Assignee">
+            <Input
+              value={form.assignee}
+              onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
+              placeholder="Initials"
+              maxLength={3}
+            />
+          </FormField>
 
           <FormField label="Due Date">
             <Input
@@ -182,6 +205,12 @@ export function CardModal({ card, colId, projectId, onClose, onUpdate, onDelete 
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
             {[
+              [
+                "Status",
+                <span key="s" style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", fontFamily: "'DM Sans', sans-serif" }}>
+                  {COL_LABELS[colId] || colId}
+                </span>,
+              ],
               [
                 "Priority",
                 <PriorityBadge key="p" priority={card.priority} />,

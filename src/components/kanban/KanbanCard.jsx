@@ -1,18 +1,62 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Avatar } from "../Avatar";
 import { PriorityBadge } from "../PriorityBadge";
 import { tagColor } from "../../utils/helpers";
 
-export function KanbanCard({ card, colId, onDragStart, onDrop, isDragOver, isDragging, onClick }) {
+export function KanbanCard({
+  card, colId,
+  onDragStart, onDragMove, onDragEnd,
+  isDragOver, isDragging,
+  onClick,
+}) {
   const [hover, setHover] = useState(false);
+  const trackRef = useRef(null);
+  const wasDragRef = useRef(false);
+
+  function handlePointerDown(e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    trackRef.current = { startX: e.clientX, startY: e.clientY, started: false };
+    wasDragRef.current = false;
+  }
+
+  function handlePointerMove(e) {
+    const t = trackRef.current;
+    if (!t) return;
+    if (!t.started) {
+      if (Math.hypot(e.clientX - t.startX, e.clientY - t.startY) < 5) return;
+      t.started = true;
+      wasDragRef.current = true;
+      onDragStart(e.clientX, e.clientY, e.currentTarget, card.id, colId);
+    }
+    onDragMove(e.clientX, e.clientY);
+  }
+
+  function handlePointerUp(e) {
+    const t = trackRef.current;
+    if (!t) return;
+    trackRef.current = null;
+    if (t.started) {
+      onDragEnd(e.clientX, e.clientY);
+    }
+  }
+
+  function handleClick() {
+    if (wasDragRef.current) {
+      wasDragRef.current = false;
+      return;
+    }
+    onClick();
+  }
 
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, card.id, colId)}
-      onDragOver={(e) => { e.preventDefault(); onDrop(e, "over", card.id, colId); }}
-      onDrop={(e) => onDrop(e, "drop", card.id, colId)}
-      onClick={onClick}
+      data-card-id={card.id}
+      data-col-id={colId}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onClick={handleClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -24,9 +68,9 @@ export function KanbanCard({ card, colId, onDragStart, onDrop, isDragOver, isDra
           : "1px solid rgba(255,255,255,0.07)",
         borderRadius: 10,
         padding: "13px 14px",
-        cursor: "grab",
-        transition: "all 0.15s ease",
-        opacity: isDragging ? 0.4 : 1,
+        cursor: isDragging ? "grabbing" : "grab",
+        transition: isDragging ? "none" : "all 0.15s ease",
+        opacity: isDragging ? 0.35 : 1,
         transform: isDragOver ? "translateY(-2px)" : "none",
         boxShadow: isDragOver
           ? "0 0 0 1px rgba(99,102,241,0.4), 0 8px 24px rgba(0,0,0,0.4)"
@@ -34,6 +78,8 @@ export function KanbanCard({ card, colId, onDragStart, onDrop, isDragOver, isDra
           ? "0 4px 16px rgba(0,0,0,0.3)"
           : "none",
         backdropFilter: "blur(4px)",
+        touchAction: "none",
+        userSelect: "none",
       }}
     >
       {card.tags?.length > 0 && (
@@ -76,13 +122,7 @@ export function KanbanCard({ card, colId, onDragStart, onDrop, isDragOver, isDra
         <PriorityBadge priority={card.priority} />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {card.due && (
-            <span
-              style={{
-                fontSize: 10,
-                color: "rgba(255,255,255,0.3)",
-                fontFamily: "'DM Mono', monospace",
-              }}
-            >
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "'DM Mono', monospace" }}>
               {card.due}
             </span>
           )}
