@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { useApp } from "../../context/AppContext";
-import { Spinner } from "./ClaudeOutput";
+import { StyledOutput, Spinner } from "./ClaudeOutput";
 
 export function PlanPanel({ card, onViewPlan }) {
   const { planState } = useApp();
@@ -153,7 +153,7 @@ export function PlanPanel({ card, onViewPlan }) {
             color: "rgba(255,255,255,0.6)",
           }}
         >
-          {liveOutput}
+          <StyledOutput text={liveOutput} />
           {isRunning && (
             <span
               style={{

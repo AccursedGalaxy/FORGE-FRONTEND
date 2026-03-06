@@ -399,7 +399,7 @@ function runPlanSession(
     if (code === 0) {
       const newText = textChunks.join("");
       const fullContent = existingPlanContent
-        ? existingPlanContent + "\n\n" + newText
+        ? existingPlanContent + "\n\n### Revision\n\n" + newText
         : newText;
 
       await db

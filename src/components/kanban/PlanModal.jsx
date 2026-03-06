@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Modal } from "../Modal";
 import { SimpleMarkdown } from "./MarkdownRenderer";
+import { StyledOutput } from "./ClaudeOutput";
 import { useApp } from "../../context/AppContext";
 
 export function PlanModal({ card, onClose }) {
@@ -13,10 +14,9 @@ export function PlanModal({ card, onClose }) {
 
   const liveChunks = state.chunks.join("");
   const baseContent = card.planContent ?? "";
-  const displayContent = baseContent + (liveChunks ? "\n\n" + liveChunks : "");
 
   const isRunning = state.status === "running";
-  const hasPlan = !!displayContent.trim();
+  const hasPlan = !!(baseContent.trim() || liveChunks.trim());
 
   // Auto-scroll to bottom while streaming
   useEffect(() => {
@@ -52,25 +52,41 @@ export function PlanModal({ card, onClose }) {
           overflowY: "auto",
         }}
       >
-        {hasPlan ? (
-          <SimpleMarkdown text={displayContent} />
-        ) : (
+        {baseContent ? (
+          <SimpleMarkdown text={baseContent} />
+        ) : !isRunning ? (
           <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>
             No plan content yet.
           </p>
-        )}
-        {isRunning && (
-          <span
-            style={{
-              display: "inline-block",
-              width: 7,
-              height: 12,
-              background: "#34d399",
-              marginLeft: 2,
-              animation: "blink 1s step-end infinite",
-              verticalAlign: "text-bottom",
-            }}
-          />
+        ) : null}
+
+        {/* Live follow-up activity — only shown while streaming */}
+        {isRunning && liveChunks && (
+          <div style={{ borderTop: "1px solid rgba(52,211,153,0.15)", marginTop: 16, paddingTop: 12 }}>
+            <p style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+              color: "rgba(52,211,153,0.4)", margin: "0 0 8px",
+            }}>
+              Updating plan…
+            </p>
+            <div style={{
+              fontFamily: "'DM Mono', monospace", fontSize: 11, lineHeight: 1.6,
+              whiteSpace: "pre-wrap", wordBreak: "break-word",
+            }}>
+              <StyledOutput text={liveChunks} />
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 7,
+                  height: 12,
+                  background: "#34d399",
+                  marginLeft: 2,
+                  animation: "blink 1s step-end infinite",
+                  verticalAlign: "text-bottom",
+                }}
+              />
+            </div>
+          </div>
         )}
       </div>
 
@@ -138,7 +154,7 @@ export function PlanModal({ card, onClose }) {
         </div>
       )}
 
-      {isRunning && (
+      {isRunning && !liveChunks && (
         <p style={{
           margin: "12px 0 0",
           fontSize: 11,
