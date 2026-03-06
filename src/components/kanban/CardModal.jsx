@@ -1,0 +1,298 @@
+import { useState } from "react";
+import { Modal } from "../Modal";
+import { FormField, Input, Textarea, Select } from "../FormField";
+import { Avatar } from "../Avatar";
+import { PriorityBadge } from "../PriorityBadge";
+import { tagColor } from "../../utils/helpers";
+
+export function CardModal({ card, colId, projectId, onClose, onUpdate, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ ...card });
+
+  function handleSave() {
+    onUpdate(projectId, card.id, form);
+    setEditing(false);
+  }
+
+  function handleTagInput(e) {
+    if (e.key === "Enter" && e.target.value.trim()) {
+      const tag = e.target.value.trim().toLowerCase();
+      if (!form.tags.includes(tag)) {
+        setForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+      }
+      e.target.value = "";
+      e.preventDefault();
+    }
+  }
+
+  function removeTag(tag) {
+    setForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }));
+  }
+
+  if (!card) return null;
+
+  return (
+    <Modal onClose={onClose} width={520}>
+      {/* Tags row */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        {card.tags?.map((tag) => (
+          <span
+            key={tag}
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: tagColor(tag),
+              background: tagColor(tag) + "1a",
+              padding: "2px 7px",
+              borderRadius: 4,
+            }}
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+
+      {editing ? (
+        /* Edit form */
+        <div>
+          <FormField label="Title">
+            <Input
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              autoFocus
+            />
+          </FormField>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <FormField label="Priority">
+              <Select
+                value={form.priority}
+                onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+              >
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </Select>
+            </FormField>
+            <FormField label="Assignee">
+              <Input
+                value={form.assignee}
+                onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
+                placeholder="Initials"
+                maxLength={3}
+              />
+            </FormField>
+          </div>
+
+          <FormField label="Due Date">
+            <Input
+              value={form.due}
+              onChange={(e) => setForm((f) => ({ ...f, due: e.target.value }))}
+              placeholder="e.g. Apr 30"
+            />
+          </FormField>
+
+          <FormField label="Tags (press Enter to add)">
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 4,
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 8,
+                padding: "6px 10px",
+                minHeight: 38,
+                alignItems: "center",
+              }}
+            >
+              {form.tags.map((tag) => (
+                <span
+                  key={tag}
+                  onClick={() => removeTag(tag)}
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: tagColor(tag),
+                    background: tagColor(tag) + "1a",
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    cursor: "pointer",
+                  }}
+                  title="Click to remove"
+                >
+                  {tag} ×
+                </span>
+              ))}
+              <input
+                onKeyDown={handleTagInput}
+                placeholder="Add tag…"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  color: "rgba(255,255,255,0.7)",
+                  fontSize: 12,
+                  flex: 1,
+                  minWidth: 80,
+                }}
+              />
+            </div>
+          </FormField>
+
+          <FormField label="Description">
+            <Textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Add a description…"
+            />
+          </FormField>
+
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+            <button
+              onClick={() => setEditing(false)}
+              style={ghostBtn}
+            >
+              Cancel
+            </button>
+            <button onClick={handleSave} style={primaryBtn}>
+              Save
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* View mode */
+        <div>
+          <h2
+            style={{
+              margin: "0 0 20px",
+              fontSize: 18,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.95)",
+              fontFamily: "'Syne', sans-serif",
+              lineHeight: 1.4,
+            }}
+          >
+            {card.title}
+          </h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+            {[
+              [
+                "Priority",
+                <PriorityBadge key="p" priority={card.priority} />,
+              ],
+              [
+                "Assignee",
+                card.assignee ? (
+                  <div key="a" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Avatar initials={card.assignee} size={20} />
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
+                      {card.assignee}
+                    </span>
+                  </div>
+                ) : (
+                  <span key="a" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
+                    Unassigned
+                  </span>
+                ),
+              ],
+              [
+                "Due Date",
+                <span
+                  key="d"
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(255,255,255,0.5)",
+                    fontFamily: "'DM Mono', monospace",
+                  }}
+                >
+                  {card.due || "—"}
+                </span>,
+              ],
+            ].map(([label, val]) => (
+              <div key={label}>
+                <p
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  {label}
+                </p>
+                {val}
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 8,
+              padding: 14,
+              marginBottom: 20,
+              minHeight: 64,
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: 12,
+                color: card.description
+                  ? "rgba(255,255,255,0.65)"
+                  : "rgba(255,255,255,0.25)",
+                fontStyle: card.description ? "normal" : "italic",
+                lineHeight: 1.6,
+              }}
+            >
+              {card.description || "No description yet."}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <button
+              onClick={() => onDelete(projectId, card.id)}
+              style={{ ...ghostBtn, color: "#ef4444", borderColor: "rgba(239,68,68,0.3)" }}
+            >
+              Delete
+            </button>
+            <button onClick={() => setEditing(true)} style={primaryBtn}>
+              Edit
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+const ghostBtn = {
+  background: "transparent",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 8,
+  padding: "7px 16px",
+  cursor: "pointer",
+  color: "rgba(255,255,255,0.5)",
+  fontSize: 12,
+  fontWeight: 600,
+};
+
+const primaryBtn = {
+  background: "#6366f1",
+  border: "none",
+  borderRadius: 8,
+  padding: "7px 18px",
+  cursor: "pointer",
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: 700,
+};
