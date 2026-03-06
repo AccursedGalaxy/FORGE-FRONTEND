@@ -1,0 +1,22 @@
+{
+  "name": "kairos-server",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch index.ts",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1",
+    "better-sqlite3": "^9",
+    "drizzle-orm": "^0.41",
+    "hono": "^4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7",
+    "@types/node": "^22",
+    "drizzle-kit": "^0.30",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}
