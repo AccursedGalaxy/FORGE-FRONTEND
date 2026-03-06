@@ -12,6 +12,7 @@ import "./hooks/handlers/index.ts";
 import { projectsRouter } from "./routes/projects.ts";
 import { cardsRouter } from "./routes/cards.ts";
 import { eventsRouter } from "./routes/events.ts";
+import { settingsRouter } from "./routes/settings.ts";
 
 const app = new Hono();
 
@@ -21,6 +22,7 @@ app.use("/api/*", cors());
 app.route("/api/projects", projectsRouter);
 app.route("/api/cards", cardsRouter);
 app.route("/api/events", eventsRouter);
+app.route("/api/settings", settingsRouter);
 
 app.get("/health", (c) => c.json({ ok: true }));
 

@@ -15,6 +15,8 @@ export function EditProjectModal({ project, onClose, onSave }) {
     tag: project.tag || "",
     dueDate: project.dueDate || "",
     members: project.members.join(", "),
+    claudeEnabled: project.claudeEnabled || false,
+    projectPath: project.projectPath || "",
   });
 
   function handleSubmit(e) {
@@ -27,6 +29,8 @@ export function EditProjectModal({ project, onClose, onSave }) {
         .map((m) => m.trim().toUpperCase())
         .filter(Boolean)
         .slice(0, 6),
+      claudeEnabled: form.claudeEnabled,
+      projectPath: form.claudeEnabled ? form.projectPath : "",
     });
     onClose();
   }
@@ -76,6 +80,59 @@ export function EditProjectModal({ project, onClose, onSave }) {
             placeholder="e.g. AK, JR, MS"
           />
         </FormField>
+
+        <div
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 8,
+            padding: "12px 14px",
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: form.claudeEnabled ? 12 : 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)" }}>
+              Claude Code
+            </span>
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, claudeEnabled: !f.claudeEnabled }))}
+              style={{
+                background: form.claudeEnabled ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${form.claudeEnabled ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.1)"}`,
+                borderRadius: 20,
+                padding: "4px 12px",
+                cursor: "pointer",
+                color: form.claudeEnabled ? "#818cf8" : "rgba(255,255,255,0.4)",
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            >
+              {form.claudeEnabled ? "Enabled" : "Disabled"}
+            </button>
+          </div>
+          {form.claudeEnabled && (
+            <FormField label="Project Path">
+              <input
+                value={form.projectPath}
+                onChange={(e) => setForm((f) => ({ ...f, projectPath: e.target.value }))}
+                placeholder="/home/user/my-project"
+                style={{
+                  width: "100%",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  color: "rgba(255,255,255,0.8)",
+                  fontSize: 12,
+                  fontFamily: "'DM Mono', monospace",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+            </FormField>
+          )}
+        </div>
 
         <FormField label="Color">
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

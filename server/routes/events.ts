@@ -13,6 +13,7 @@ export function broadcast(type: string, data: unknown) {
 const EVENT_TYPES = [
   "task:created", "task:moved", "task:updated", "task:deleted",
   "project:created", "project:updated", "project:deleted",
+  "claude:start", "claude:stream", "claude:done", "claude:error",
 ] as const;
 
 for (const type of EVENT_TYPES) {

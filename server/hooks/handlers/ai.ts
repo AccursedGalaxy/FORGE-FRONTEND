@@ -1,27 +1,33 @@
 /**
  * AI / LLM hook handlers.
- *
- * Each handler receives the event payload typed via HookEventMap.
- * Uncomment and implement as AI features are added.
- *
- * Expected integrations:
- *   - task:created   → suggest subtasks, auto-assign priority via LLM
- *   - task:moved     → detect blockers when moved to "review", ping reviewer
- *   - project:created → generate initial backlog from description via LLM
  */
 
 import type { HookEventMap } from "../index.ts";
+import { db } from "../../db/index.ts";
+import { projects } from "../../db/schema.ts";
+import { eq } from "drizzle-orm";
+import { spawnSession, buildPrompt } from "../../claude/runner.ts";
 
-export function onTaskCreated(data: HookEventMap["task:created"]) {
+export function onTaskCreated(_data: HookEventMap["task:created"]) {
   // TODO: call LLM to suggest priority / auto-tag
-  // TODO: notify assigned member
 }
 
-export function onTaskMoved(data: HookEventMap["task:moved"]) {
-  // TODO: if toColId === "review", trigger review notification
-  // TODO: if toColId === "done", check if project is 100% complete
+export async function onTaskMoved(data: HookEventMap["task:moved"]) {
+  if (data.toColId !== "inProgress") return;
+
+  const [project] = await db.select().from(projects).where(eq(projects.id, data.projectId));
+  if (!project || !project.claudeEnabled || !project.projectPath) return;
+
+  const projectObj = {
+    id: project.id,
+    name: project.name,
+    projectPath: project.projectPath ?? "",
+  };
+
+  const prompt = buildPrompt(data.card, projectObj);
+  await spawnSession(data.card, projectObj, prompt);
 }
 
-export function onProjectCreated(data: HookEventMap["project:created"]) {
+export function onProjectCreated(_data: HookEventMap["project:created"]) {
   // TODO: LLM-generate initial card suggestions from project.description
 }

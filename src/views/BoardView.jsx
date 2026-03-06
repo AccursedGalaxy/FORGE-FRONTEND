@@ -300,6 +300,7 @@ export function BoardView({ projectId, onBack }) {
           card={selectedCard.card}
           colId={selectedCard.colId}
           projectId={projectId}
+          project={project}
           onClose={() => setSelectedCard(null)}
           onUpdate={handleUpdateCard}
           onMove={handleMoveCard}

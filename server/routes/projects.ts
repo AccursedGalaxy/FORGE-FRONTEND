@@ -64,6 +64,8 @@ function formatProject(row: typeof projects.$inferSelect, counts: TaskCounts): P
     tag: row.tag ?? "General",
     tasks,
     progress,
+    claudeEnabled: (row.claudeEnabled ?? 0) === 1,
+    projectPath: row.projectPath ?? "",
   };
 }
 
@@ -86,6 +88,8 @@ projectsRouter.post("/", async (c) => {
     members?: string[];
     dueDate?: string;
     tag?: string;
+    claudeEnabled?: boolean;
+    projectPath?: string;
   }>();
 
   const now = Date.now();
@@ -99,6 +103,8 @@ projectsRouter.post("/", async (c) => {
     members: JSON.stringify(body.members ?? []),
     dueDate: body.dueDate ?? "",
     tag: body.tag ?? "General",
+    claudeEnabled: body.claudeEnabled ? 1 : 0,
+    projectPath: body.projectPath ?? "",
     createdAt: now,
     updatedAt: now,
   });
@@ -121,6 +127,8 @@ projectsRouter.patch("/:id", async (c) => {
     members: string[];
     dueDate: string;
     tag: string;
+    claudeEnabled: boolean;
+    projectPath: string;
   }>>();
 
   const now = Date.now();
@@ -131,6 +139,8 @@ projectsRouter.patch("/:id", async (c) => {
   if (body.members !== undefined) updateValues.members = JSON.stringify(body.members);
   if (body.dueDate !== undefined) updateValues.dueDate = body.dueDate;
   if (body.tag !== undefined) updateValues.tag = body.tag;
+  if (body.claudeEnabled !== undefined) updateValues.claudeEnabled = body.claudeEnabled ? 1 : 0;
+  if (body.projectPath !== undefined) updateValues.projectPath = body.projectPath;
 
   await db.update(projects).set(updateValues).where(eq(projects.id, id));
 

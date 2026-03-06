@@ -4,6 +4,7 @@ import { FormField, Input, Textarea, Select } from "../FormField";
 import { Avatar } from "../Avatar";
 import { PriorityBadge } from "../PriorityBadge";
 import { tagColor } from "../../utils/helpers";
+import { ClaudePanel } from "./ClaudePanel";
 
 const COL_LABELS = {
   todo: "Backlog",
@@ -12,7 +13,7 @@ const COL_LABELS = {
   done: "Done",
 };
 
-export function CardModal({ card, colId, projectId, onClose, onUpdate, onMove, onDelete }) {
+export function CardModal({ card, colId, projectId, project, onClose, onUpdate, onMove, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...card, colId });
 
@@ -268,26 +269,48 @@ export function CardModal({ card, colId, projectId, onClose, onUpdate, onMove, o
               border: "1px solid rgba(255,255,255,0.07)",
               borderRadius: 8,
               padding: 14,
-              marginBottom: 20,
+              marginBottom: card.claudeNotes ? 10 : 20,
               minHeight: 64,
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12,
-                color: card.description
-                  ? "rgba(255,255,255,0.65)"
-                  : "rgba(255,255,255,0.25)",
-                fontStyle: card.description ? "normal" : "italic",
-                lineHeight: 1.6,
-              }}
-            >
-              {card.description || "No description yet."}
-            </p>
+            {card.description ? (
+              <SimpleMarkdown text={card.description} />
+            ) : (
+              <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>
+                No description yet.
+              </p>
+            )}
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
+          {card.claudeNotes && (
+            <div
+              style={{
+                background: "rgba(99,102,241,0.04)",
+                border: "1px solid rgba(99,102,241,0.15)",
+                borderRadius: 8,
+                padding: 14,
+                marginBottom: 20,
+              }}
+            >
+              <p style={{
+                margin: "0 0 8px",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "rgba(129,140,248,0.6)",
+              }}>
+                Claude Summary
+              </p>
+              <SimpleMarkdown text={card.claudeNotes} />
+            </div>
+          )}
+
+          {project?.claudeEnabled && (
+            <ClaudePanel card={card} projectId={projectId} />
+          )}
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
             <button
               onClick={() => onDelete(projectId, card.id)}
               style={{ ...ghostBtn, color: "#ef4444", borderColor: "rgba(239,68,68,0.3)" }}
@@ -301,6 +324,73 @@ export function CardModal({ card, colId, projectId, onClose, onUpdate, onMove, o
         </div>
       )}
     </Modal>
+  );
+}
+
+/**
+ * Renders a small subset of markdown: **bold**, *italic*, `code`,
+ * - bullet lists, and paragraph breaks (\n\n).
+ */
+function SimpleMarkdown({ text }) {
+  const paragraphs = text.split(/\n{2,}/);
+
+  return (
+    <div style={{ margin: 0 }}>
+      {paragraphs.map((para, pi) => {
+        const lines = para.split("\n");
+        const isList = lines.every((l) => l.trimStart().startsWith("- ") || l.trim() === "");
+
+        if (isList) {
+          return (
+            <ul key={pi} style={{ margin: pi === 0 ? 0 : "8px 0 0", paddingLeft: 16 }}>
+              {lines.filter((l) => l.trim()).map((line, li) => (
+                <li key={li} style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7, marginBottom: 2 }}>
+                  <InlineMarkdown text={line.replace(/^[\s-]+/, "")} />
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        return (
+          <p key={pi} style={{ margin: pi === 0 ? 0 : "8px 0 0", fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7 }}>
+            {lines.map((line, li) => (
+              <span key={li}>
+                {li > 0 && <br />}
+                <InlineMarkdown text={line} />
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function InlineMarkdown({ text }) {
+  // Parse **bold**, *italic*, `code` inline
+  const tokens = [];
+  const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) tokens.push({ kind: "text", content: text.slice(last, m.index) });
+    if (m[0].startsWith("**"))   tokens.push({ kind: "bold",   content: m[2] });
+    else if (m[0].startsWith("*")) tokens.push({ kind: "italic", content: m[3] });
+    else                           tokens.push({ kind: "code",   content: m[4] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) tokens.push({ kind: "text", content: text.slice(last) });
+
+  return (
+    <>
+      {tokens.map((t, i) => {
+        if (t.kind === "bold")   return <strong key={i} style={{ color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>{t.content}</strong>;
+        if (t.kind === "italic") return <em key={i} style={{ color: "rgba(255,255,255,0.55)" }}>{t.content}</em>;
+        if (t.kind === "code")   return <code key={i} style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, background: "rgba(255,255,255,0.07)", padding: "1px 5px", borderRadius: 3 }}>{t.content}</code>;
+        return <span key={i}>{t.content}</span>;
+      })}
+    </>
   );
 }
 

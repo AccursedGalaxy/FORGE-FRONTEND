@@ -8,6 +8,8 @@ export const projects = sqliteTable("projects", {
   members: text("members").default("[]"),
   dueDate: text("due_date").default(""),
   tag: text("tag").default("General"),
+  claudeEnabled: integer("claude_enabled").default(0),
+  projectPath: text("project_path").default(""),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -25,6 +27,14 @@ export const cards = sqliteTable("cards", {
   due: text("due").default(""),
   description: text("description").default(""),
   position: real("position").notNull(),
+  claudeSessionId: text("claude_session_id"),
+  claudeStatus: text("claude_status"),
+  claudeNotes: text("claude_notes").default(""),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
+});
+
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
 });

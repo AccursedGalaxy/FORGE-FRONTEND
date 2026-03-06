@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Avatar } from "../Avatar";
 import { PriorityBadge } from "../PriorityBadge";
 import { tagColor } from "../../utils/helpers";
+import { useApp } from "../../context/AppContext";
 
 export function KanbanCard({
   card, colId,
@@ -9,6 +10,9 @@ export function KanbanCard({
   isDragOver, isDragging,
   onClick,
 }) {
+  const { claudeState } = useApp();
+  const claudeStatus = claudeState[card.id]?.status ?? card.claudeStatus ?? null;
+
   const [hover, setHover] = useState(false);
   const trackRef = useRef(null);
   const wasDragRef = useRef(false);
@@ -104,19 +108,46 @@ export function KanbanCard({
         </div>
       )}
 
-      <p
-        style={{
-          margin: 0,
-          marginBottom: 10,
-          fontSize: 13,
-          fontWeight: 500,
-          color: "rgba(255,255,255,0.9)",
-          lineHeight: 1.5,
-          fontFamily: "'DM Sans', sans-serif",
-        }}
-      >
-        {card.title}
-      </p>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 10 }}>
+        <p
+          style={{
+            margin: 0,
+            flex: 1,
+            fontSize: 13,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.9)",
+            lineHeight: 1.5,
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          {card.title}
+        </p>
+        {claudeStatus === "running" && (
+          <span title="Claude is working on this…" style={{
+            flexShrink: 0,
+            marginTop: 3,
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#818cf8",
+            boxShadow: "0 0 0 0 rgba(129,140,248,0.6)",
+            animation: "claudePulse 1.4s ease-in-out infinite",
+            display: "inline-block",
+          }} />
+        )}
+        {claudeStatus === "error" && (
+          <span title="Claude errored — click to retry" style={{
+            flexShrink: 0,
+            marginTop: 3,
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#f87171",
+            display: "inline-block",
+            opacity: 0.7,
+          }} />
+        )}
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <PriorityBadge priority={card.priority} />

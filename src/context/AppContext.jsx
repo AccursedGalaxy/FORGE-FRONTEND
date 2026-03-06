@@ -46,6 +46,8 @@ export function AppProvider({ children }) {
   const [boards, setBoards] = useState({});
   const [loading, setLoading] = useState(true);
   const [boardsLoading, setBoardsLoading] = useState(new Set());
+  // claudeState: { [cardId]: { status, chunks, sessionId } }
+  const [claudeState, setClaudeState] = useState({});
 
   // Ref guards duplicate in-flight board fetches (state updates are async)
   const boardLoadingRef = useRef(new Set());
@@ -181,6 +183,59 @@ export function AppProvider({ children }) {
           delete next[data.projectId];
           return next;
         });
+        break;
+
+      case "claude:start":
+        setClaudeState((prev) => ({
+          ...prev,
+          [data.cardId]: {
+            status: "running",
+            chunks: prev[data.cardId]?.chunks ?? [],
+            sessionId: data.sessionId ?? prev[data.cardId]?.sessionId ?? null,
+          },
+        }));
+        break;
+
+      case "claude:stream":
+        setClaudeState((prev) => {
+          const entry = prev[data.cardId] ?? { status: "running", chunks: [], sessionId: null };
+          return { ...prev, [data.cardId]: { ...entry, chunks: [...entry.chunks, data.chunk] } };
+        });
+        break;
+
+      case "claude:done":
+        setClaudeState((prev) => ({
+          ...prev,
+          [data.cardId]: {
+            ...prev[data.cardId],
+            status: "done",
+            sessionId: data.sessionId ?? prev[data.cardId]?.sessionId ?? null,
+          },
+        }));
+        // Update claudeNotes on the card (description is untouched)
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          return {
+            ...prev,
+            [data.projectId]: {
+              ...board,
+              columns: board.columns.map((col) => ({
+                ...col,
+                cards: col.cards.map((c) =>
+                  c.id !== data.cardId ? c : { ...c, claudeStatus: "done", claudeNotes: data.notes }
+                ),
+              })),
+            },
+          };
+        });
+        break;
+
+      case "claude:error":
+        setClaudeState((prev) => ({
+          ...prev,
+          [data.cardId]: { ...prev[data.cardId], status: "error" },
+        }));
         break;
 
       default:
@@ -362,6 +417,7 @@ export function AppProvider({ children }) {
     boards,
     loading,
     boardsLoading,
+    claudeState,
     getBoard,
     addProject,
     updateProject,

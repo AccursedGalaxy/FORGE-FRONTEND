@@ -1,12 +1,15 @@
 import { Hono } from "hono";
 import { eq, and, max } from "drizzle-orm";
 import { db, sqlite } from "../db/index.ts";
-import { cards } from "../db/schema.ts";
+import { cards, projects } from "../db/schema.ts";
 import { emit } from "../hooks/index.ts";
+import { broadcast } from "./events.ts";
+import { activeSessions, spawnSession, resumeSession, buildPrompt } from "../claude/runner.ts";
+import type { Card } from "../types.ts";
 
 export const cardsRouter = new Hono();
 
-export function formatCard(row: typeof cards.$inferSelect) {
+export function formatCard(row: typeof cards.$inferSelect): Card {
   return {
     id: row.id,
     title: row.title,
@@ -15,6 +18,9 @@ export function formatCard(row: typeof cards.$inferSelect) {
     tags: JSON.parse(row.tags ?? "[]") as string[],
     due: row.due ?? "",
     description: row.description ?? "",
+    claudeSessionId: row.claudeSessionId ?? null,
+    claudeStatus: row.claudeStatus ?? null,
+    claudeNotes: row.claudeNotes ?? "",
   };
 }
 
@@ -149,4 +155,83 @@ cardsRouter.post("/:id/move", async (c) => {
   const formatted = formatCard(updated);
   emit({ type: "task:moved", data: { card: formatted, projectId: card.projectId, fromColId, toColId } });
   return c.json(formatted);
+});
+
+// ── POST /api/cards/:id/claude/trigger ────────────────────────────────────────
+
+cardsRouter.post("/:id/claude/trigger", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{ prompt?: string }>().catch(() => ({}));
+
+  if (activeSessions.has(id)) {
+    return c.json({ error: "session already running" }, 409);
+  }
+
+  const [cardRow] = await db.select().from(cards).where(eq(cards.id, id));
+  if (!cardRow) return c.json({ error: "not found" }, 404);
+
+  const [projectRow] = await db.select().from(projects).where(eq(projects.id, cardRow.projectId));
+  if (!projectRow) return c.json({ error: "project not found" }, 404);
+
+  if (!projectRow.claudeEnabled) {
+    return c.json({ error: "claude not enabled for this project" }, 403);
+  }
+
+  const project = {
+    id: projectRow.id,
+    name: projectRow.name,
+    projectPath: projectRow.projectPath ?? "",
+  };
+  const card = formatCard(cardRow);
+
+  if (body.prompt && cardRow.claudeSessionId) {
+    // Resume with follow-up prompt
+    await resumeSession(id, cardRow.claudeSessionId, body.prompt, project);
+  } else {
+    const prompt = body.prompt ?? buildPrompt(card, project);
+    await spawnSession(card, project, prompt);
+  }
+
+  return c.json({ ok: true });
+});
+
+// ── POST /api/cards/:id/claude/abort ─────────────────────────────────────────
+
+cardsRouter.post("/:id/claude/abort", async (c) => {
+  const id = c.req.param("id");
+  const proc = activeSessions.get(id);
+
+  if (!proc) {
+    return c.json({ error: "no active session" }, 404);
+  }
+
+  proc.kill("SIGTERM");
+  activeSessions.delete(id);
+
+  await db
+    .update(cards)
+    .set({ claudeStatus: null, updatedAt: Date.now() })
+    .where(eq(cards.id, id));
+
+  const [cardRow] = await db.select().from(cards).where(eq(cards.id, id));
+  if (cardRow) {
+    broadcast("claude:error", { cardId: id, projectId: cardRow.projectId, error: "aborted by user" });
+  }
+
+  return c.json({ ok: true });
+});
+
+// ── POST /api/cards/:id/claude/hook ──────────────────────────────────────────
+
+cardsRouter.post("/:id/claude/hook", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+
+  // Observability: broadcast tool-use events as stream chunks
+  const eventName = (body.event as string) ?? (body.tool_name as string) ?? "hook";
+  const chunk = `[tool: ${eventName}]\n`;
+  broadcast("claude:stream", { cardId: id, chunk });
+
+  console.log(`[claude:hook] card=${id}`, JSON.stringify(body).slice(0, 200));
+  return c.json({ ok: true });
 });

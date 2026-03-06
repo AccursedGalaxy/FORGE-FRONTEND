@@ -39,10 +39,52 @@ sqlite.exec(`
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `);
+
+// Idempotent migrations — safe to run on existing DBs
+for (const stmt of [
+  `ALTER TABLE projects ADD COLUMN claude_enabled INTEGER DEFAULT 0`,
+  `ALTER TABLE projects ADD COLUMN project_path TEXT DEFAULT ''`,
+  `ALTER TABLE cards ADD COLUMN claude_session_id TEXT DEFAULT NULL`,
+  `ALTER TABLE cards ADD COLUMN claude_status TEXT DEFAULT NULL`,
+  `ALTER TABLE cards ADD COLUMN claude_notes TEXT DEFAULT ''`,
+]) {
+  try {
+    sqlite.exec(stmt);
+  } catch { /* column already exists */ }
+}
 
 export const db = drizzle(sqlite, { schema });
 export { sqlite };
+
+// Reset any cards left in "running" state from a previous crashed/restarted server.
+// If we're booting, all prior process handles are gone — mark them as error.
+const staleCount = sqlite.prepare(
+  `UPDATE cards SET claude_status = 'error' WHERE claude_status = 'running'`
+).run();
+if (staleCount.changes > 0) {
+  console.log(`[db] reset ${staleCount.changes} stale claude session(s) to 'error'`);
+}
+
+// ── Settings helpers ──────────────────────────────────────────────────────────
+
+export function getSettingValue(key: string, defaultValue = ""): string {
+  const row = sqlite
+    .prepare("SELECT value FROM settings WHERE key = ?")
+    .get(key) as { value: string } | undefined;
+  return row?.value ?? defaultValue;
+}
+
+export function setSettingValue(key: string, value: string): void {
+  sqlite
+    .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .run(key, value);
+}
 
 // ── Seed initial data if DB is empty ─────────────────────────────────────────
 

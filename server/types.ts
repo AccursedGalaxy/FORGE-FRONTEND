@@ -8,6 +8,8 @@ export interface Project {
   tag: string;
   progress: number;
   tasks: { todo: number; inProgress: number; review: number; done: number };
+  claudeEnabled: boolean;
+  projectPath: string;
 }
 
 export interface Card {
@@ -18,6 +20,9 @@ export interface Card {
   tags: string[];
   due: string;
   description: string;
+  claudeSessionId: string | null;
+  claudeStatus: string | null;
+  claudeNotes: string;
 }
 
 export interface Column {

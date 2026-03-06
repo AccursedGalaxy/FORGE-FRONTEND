@@ -8,7 +8,11 @@ export type KairosEvent =
   | { type: "task:deleted";  data: { cardId: string; projectId: string } }
   | { type: "project:created"; data: { project: Project } }
   | { type: "project:updated"; data: { project: Project; changes: Partial<Project> } }
-  | { type: "project:deleted"; data: { projectId: string } };
+  | { type: "project:deleted"; data: { projectId: string } }
+  | { type: "claude:start";  data: { cardId: string; projectId: string; sessionId?: string } }
+  | { type: "claude:stream"; data: { cardId: string; chunk: string } }
+  | { type: "claude:done";   data: { cardId: string; projectId: string; sessionId: string | null; notes: string } }
+  | { type: "claude:error";  data: { cardId: string; projectId: string; error: string } };
 
 /** Typed map from event name to its payload — used by hook handlers for type safety. */
 export type HookEventMap = {

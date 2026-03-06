@@ -6,9 +6,9 @@ emitter.on("task:created", (data) => {
   ai.onTaskCreated(data);
 });
 
-emitter.on("task:moved", (data) => {
+emitter.on("task:moved", async (data) => {
   console.log("[hook] task:moved", data.card.id, `${data.fromColId} → ${data.toColId}`);
-  ai.onTaskMoved(data);
+  await ai.onTaskMoved(data);
 });
 
 emitter.on("task:updated", (data) => {
