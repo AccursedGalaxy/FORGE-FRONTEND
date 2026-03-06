@@ -10,6 +10,17 @@ export type KairosEvent =
   | { type: "project:updated"; data: { project: Project; changes: Partial<Project> } }
   | { type: "project:deleted"; data: { projectId: string } };
 
+/** Typed map from event name to its payload — used by hook handlers for type safety. */
+export type HookEventMap = {
+  "task:created":    { card: Card; projectId: string; colId: string };
+  "task:moved":      { card: Card; projectId: string; fromColId: string; toColId: string };
+  "task:updated":    { card: Card; projectId: string; changes: Partial<Card> };
+  "task:deleted":    { cardId: string; projectId: string };
+  "project:created": { project: Project };
+  "project:updated": { project: Project; changes: Partial<Project> };
+  "project:deleted": { projectId: string };
+};
+
 export const emitter = new EventEmitter();
 
 export function emit(event: KairosEvent) {

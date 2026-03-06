@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppProvider } from "./context/AppContext";
+import { ToastProvider } from "./components/Toast";
 import { Overview } from "./views/Overview";
 import { BoardView } from "./views/BoardView";
 
@@ -19,8 +20,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <ToastProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ToastProvider>
   );
 }

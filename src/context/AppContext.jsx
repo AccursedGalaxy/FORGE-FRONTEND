@@ -1,36 +1,79 @@
 import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { DEFAULT_COLUMNS } from "../data/initialData";
+import { useToast } from "../components/Toast";
 
 const AppContext = createContext(null);
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 const api = {
-  get: (url) => fetch(url).then((r) => r.json()),
+  get: (url) =>
+    fetch(url).then((r) => {
+      if (!r.ok) throw new Error(r.statusText || `GET ${url} failed`);
+      return r.json();
+    }),
   post: (url, body) =>
-    fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => {
+      if (!r.ok) throw new Error(r.statusText || `POST ${url} failed`);
+      return r.json();
+    }),
   patch: (url, body) =>
-    fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()),
-  del: (url) => fetch(url, { method: "DELETE" }).then((r) => r.json()),
+    fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => {
+      if (!r.ok) throw new Error(r.statusText || `PATCH ${url} failed`);
+      return r.json();
+    }),
+  del: (url) =>
+    fetch(url, { method: "DELETE" }).then((r) => {
+      if (!r.ok) throw new Error(r.statusText || `DELETE ${url} failed`);
+      return r.json();
+    }),
 };
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AppProvider({ children }) {
+  const { showError } = useToast();
+
   const [projects, setProjects] = useState([]);
   const [boards, setBoards] = useState({});
   const [loading, setLoading] = useState(true);
+  const [boardsLoading, setBoardsLoading] = useState(new Set());
 
-  // Track which boards are currently being fetched to avoid duplicate requests
+  // Ref guards duplicate in-flight board fetches (state updates are async)
   const boardLoadingRef = useRef(new Set());
+
+  // ── Safe API wrapper ──────────────────────────────────────────────────────
+
+  async function safeApi(fn, fallback = null) {
+    try {
+      return await fn();
+    } catch (err) {
+      showError(err.message || "Request failed");
+      return fallback;
+    }
+  }
 
   // ── Initial load + SSE ───────────────────────────────────────────────────
 
   useEffect(() => {
-    api.get("/api/projects").then((data) => {
-      setProjects(data);
-      setLoading(false);
-    });
+    api
+      .get("/api/projects")
+      .then((data) => {
+        setProjects(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        showError(err.message || "Failed to load projects");
+        setLoading(false);
+      });
 
     const es = new EventSource("/api/events");
     es.onmessage = (e) => {
@@ -44,6 +87,46 @@ export function AppProvider({ children }) {
 
   function handleSSEEvent(type, data) {
     switch (type) {
+      case "task:created":
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          // Skip if this tab already added it via addCard (optimistic write)
+          const exists = board.columns.some((col) =>
+            col.cards.some((c) => c.id === data.card.id)
+          );
+          if (exists) return prev;
+          const updated = {
+            ...board,
+            columns: board.columns.map((col) =>
+              col.id === data.colId
+                ? { ...col, cards: [...col.cards, data.card] }
+                : col
+            ),
+          };
+          _syncStats(data.projectId, updated);
+          return { ...prev, [data.projectId]: updated };
+        });
+        break;
+
+      case "task:moved":
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          const cols = board.columns.map((c) => ({ ...c, cards: [...c.cards] }));
+          const fromCol = cols.find((c) => c.id === data.fromColId);
+          const toCol   = cols.find((c) => c.id === data.toColId);
+          if (!fromCol || !toCol) return prev;
+          const idx = fromCol.cards.findIndex((c) => c.id === data.card.id);
+          if (idx === -1) return prev;
+          const [card] = fromCol.cards.splice(idx, 1);
+          toCol.cards.push(card);
+          const updated = { ...board, columns: cols };
+          _syncStats(data.projectId, updated);
+          return { ...prev, [data.projectId]: updated };
+        });
+        break;
+
       case "task:updated":
         setBoards((prev) => {
           const board = prev[data.projectId];
@@ -54,17 +137,50 @@ export function AppProvider({ children }) {
               ...board,
               columns: board.columns.map((col) => ({
                 ...col,
-                cards: col.cards.map((c) => (c.id === data.card.id ? { ...c, ...data.card } : c)),
+                cards: col.cards.map((c) =>
+                  c.id === data.card.id ? { ...c, ...data.card } : c
+                ),
               })),
             },
           };
         });
         break;
 
+      case "task:deleted":
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          const updated = {
+            ...board,
+            columns: board.columns.map((col) => ({
+              ...col,
+              cards: col.cards.filter((c) => c.id !== data.cardId),
+            })),
+          };
+          _syncStats(data.projectId, updated);
+          return { ...prev, [data.projectId]: updated };
+        });
+        break;
+
+      case "project:created":
+        setProjects((prev) =>
+          prev.some((p) => p.id === data.project.id) ? prev : [...prev, data.project]
+        );
+        break;
+
       case "project:updated":
         setProjects((prev) =>
           prev.map((p) => (p.id === data.project.id ? { ...p, ...data.project } : p))
         );
+        break;
+
+      case "project:deleted":
+        setProjects((prev) => prev.filter((p) => p.id !== data.projectId));
+        setBoards((prev) => {
+          const next = { ...prev };
+          delete next[data.projectId];
+          return next;
+        });
         break;
 
       default:
@@ -89,8 +205,9 @@ export function AppProvider({ children }) {
   // ── Projects ─────────────────────────────────────────────────────────────
 
   async function addProject(data) {
-    const project = await api.post("/api/projects", data);
-    setProjects((prev) => [...prev, project]);
+    const project = await safeApi(() => api.post("/api/projects", data));
+    if (!project) return null;
+    setProjects((prev) => prev.some((p) => p.id === project.id) ? prev : [...prev, project]);
     setBoards((prev) => ({
       ...prev,
       [project.id]: { columns: DEFAULT_COLUMNS.map((c) => ({ ...c, cards: [] })) },
@@ -99,12 +216,14 @@ export function AppProvider({ children }) {
   }
 
   async function updateProject(id, changes) {
-    const project = await api.patch(`/api/projects/${id}`, changes);
+    const project = await safeApi(() => api.patch(`/api/projects/${id}`, changes));
+    if (!project) return;
     setProjects((prev) => prev.map((p) => (p.id === id ? project : p)));
   }
 
   async function deleteProject(id) {
-    await api.del(`/api/projects/${id}`);
+    const result = await safeApi(() => api.del(`/api/projects/${id}`));
+    if (result === null) return;
     setProjects((prev) => prev.filter((p) => p.id !== id));
     setBoards((prev) => {
       const next = { ...prev };
@@ -118,22 +237,41 @@ export function AppProvider({ children }) {
   function getBoard(projectId) {
     if (!boards[projectId] && !boardLoadingRef.current.has(projectId)) {
       boardLoadingRef.current.add(projectId);
-      api.get(`/api/projects/${projectId}/board`).then((data) => {
-        setBoards((prev) => ({ ...prev, [projectId]: data }));
-        boardLoadingRef.current.delete(projectId);
-      });
+      setBoardsLoading((prev) => new Set([...prev, projectId]));
+      api
+        .get(`/api/projects/${projectId}/board`)
+        .then((data) => {
+          setBoards((prev) => ({ ...prev, [projectId]: data }));
+          boardLoadingRef.current.delete(projectId);
+          setBoardsLoading((prev) => {
+            const next = new Set(prev);
+            next.delete(projectId);
+            return next;
+          });
+        })
+        .catch((err) => {
+          showError(err.message || "Failed to load board");
+          boardLoadingRef.current.delete(projectId);
+          setBoardsLoading((prev) => {
+            const next = new Set(prev);
+            next.delete(projectId);
+            return next;
+          });
+        });
     }
-    return boards[projectId] || { columns: DEFAULT_COLUMNS.map((c) => ({ ...c, cards: [] })) };
+    return boards[projectId] || null;
   }
 
   async function moveCard(projectId, cardId, fromColId, toColId, targetCardId) {
-    // Optimistic update
+    // Capture snapshot for rollback
+    let snapshot;
     setBoards((prev) => {
+      snapshot = prev;
       const board = prev[projectId];
       if (!board) return prev;
       const cols = board.columns.map((c) => ({ ...c, cards: [...c.cards] }));
       const fromCol = cols.find((c) => c.id === fromColId);
-      const toCol = cols.find((c) => c.id === toColId);
+      const toCol   = cols.find((c) => c.id === toColId);
       if (!fromCol || !toCol) return prev;
       const idx = fromCol.cards.findIndex((c) => c.id === cardId);
       if (idx === -1) return prev;
@@ -149,14 +287,27 @@ export function AppProvider({ children }) {
       return { ...prev, [projectId]: updated };
     });
 
-    // Persist to DB
-    await api.post(`/api/cards/${cardId}/move`, { toColId, targetCardId });
+    try {
+      await api.post(`/api/cards/${cardId}/move`, { toColId, targetCardId });
+    } catch (err) {
+      showError(err.message || "Failed to move card");
+      if (snapshot) {
+        setBoards(snapshot);
+        if (snapshot[projectId]) _syncStats(projectId, snapshot[projectId]);
+      }
+    }
   }
 
   async function addCard(projectId, colId, cardData) {
-    const card = await api.post(`/api/projects/${projectId}/cards`, { colId, ...cardData });
+    const card = await safeApi(() =>
+      api.post(`/api/projects/${projectId}/cards`, { colId, ...cardData })
+    );
+    if (!card) return null;
     setBoards((prev) => {
       const board = prev[projectId] || { columns: DEFAULT_COLUMNS.map((c) => ({ ...c, cards: [] })) };
+      // SSE task:created may have already added this card if it arrived before the POST resolved
+      const exists = board.columns.some((col) => col.cards.some((c) => c.id === card.id));
+      if (exists) return prev;
       const updated = {
         ...board,
         columns: board.columns.map((c) =>
@@ -170,7 +321,8 @@ export function AppProvider({ children }) {
   }
 
   async function updateCard(projectId, cardId, changes) {
-    await api.patch(`/api/cards/${cardId}`, changes);
+    const result = await safeApi(() => api.patch(`/api/cards/${cardId}`, changes));
+    if (result === null) return;
     setBoards((prev) => {
       const board = prev[projectId];
       if (!board) return prev;
@@ -188,7 +340,8 @@ export function AppProvider({ children }) {
   }
 
   async function deleteCard(projectId, cardId) {
-    await api.del(`/api/cards/${cardId}`);
+    const result = await safeApi(() => api.del(`/api/cards/${cardId}`));
+    if (result === null) return;
     setBoards((prev) => {
       const board = prev[projectId];
       if (!board) return prev;
@@ -208,6 +361,7 @@ export function AppProvider({ children }) {
     projects,
     boards,
     loading,
+    boardsLoading,
     getBoard,
     addProject,
     updateProject,

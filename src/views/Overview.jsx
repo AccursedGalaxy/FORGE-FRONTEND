@@ -6,7 +6,7 @@ import { EditProjectModal } from "../components/overview/EditProjectModal";
 import { Avatar } from "../components/Avatar";
 
 export function Overview({ onOpenProject }) {
-  const { projects, addProject, updateProject, deleteProject } = useApp();
+  const { projects, loading, addProject, updateProject, deleteProject } = useApp();
   const [filter, setFilter] = useState("All");
   const [showNewProject, setShowNewProject] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
@@ -18,57 +18,106 @@ export function Overview({ onOpenProject }) {
   const doneTasks = projects.reduce((a, p) => a + p.tasks.done, 0);
   const inProgress = projects.reduce((a, p) => a + p.tasks.inProgress, 0);
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#080910" }}>
-      {/* Nav */}
-      <nav
-        style={{
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
-          padding: "0 40px",
-          height: 58,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          background: "rgba(8,9,16,0.95)",
-          backdropFilter: "blur(12px)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+  const nav = (
+    <nav
+      style={{
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        padding: "0 40px",
+        height: 58,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        background: "rgba(8,9,16,0.95)",
+        backdropFilter: "blur(12px)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="1" width="5" height="5" rx="1.5" fill="white" fillOpacity=".9" />
+            <rect x="8" y="1" width="5" height="5" rx="1.5" fill="white" fillOpacity=".5" />
+            <rect x="1" y="8" width="5" height="5" rx="1.5" fill="white" fillOpacity=".5" />
+            <rect x="8" y="8" width="5" height="5" rx="1.5" fill="white" fillOpacity=".9" />
+          </svg>
+        </div>
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 800,
+            color: "rgba(255,255,255,0.92)",
+            fontFamily: "'Syne', sans-serif",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Kairos
+        </span>
+      </div>
+      <Avatar initials="RB" size={30} color="#6366f1" />
+    </nav>
+  );
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#080910" }}>
+        {nav}
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 40px" }}>
+          {/* Header skeleton */}
+          <div style={{ marginBottom: 40 }}>
+            <div className="skeleton" style={{ width: 180, height: 34, borderRadius: 8, marginBottom: 10 }} />
+            <div className="skeleton" style={{ width: 240, height: 14, borderRadius: 6 }} />
+          </div>
+          {/* Stats skeleton */}
           <div
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              display: "grid",
+              gridTemplateColumns: "repeat(4,1fr)",
+              gap: 12,
+              marginBottom: 40,
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="1" y="1" width="5" height="5" rx="1.5" fill="white" fillOpacity=".9" />
-              <rect x="8" y="1" width="5" height="5" rx="1.5" fill="white" fillOpacity=".5" />
-              <rect x="1" y="8" width="5" height="5" rx="1.5" fill="white" fillOpacity=".5" />
-              <rect x="8" y="8" width="5" height="5" rx="1.5" fill="white" fillOpacity=".9" />
-            </svg>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="skeleton" style={{ borderRadius: 12, height: 72 }} />
+            ))}
           </div>
-          <span
+          {/* Filter bar skeleton */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 28 }}>
+            {[80, 90, 70].map((w, i) => (
+              <div key={i} className="skeleton" style={{ width: w, height: 28, borderRadius: 8 }} />
+            ))}
+          </div>
+          {/* Grid skeleton */}
+          <div
             style={{
-              fontSize: 15,
-              fontWeight: 800,
-              color: "rgba(255,255,255,0.92)",
-              fontFamily: "'Syne', sans-serif",
-              letterSpacing: "-0.01em",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
+              gap: 16,
             }}
           >
-            Kairos
-          </span>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skeleton" style={{ borderRadius: 14, height: 172 }} />
+            ))}
+          </div>
         </div>
-        <Avatar initials="RB" size={30} color="#6366f1" />
-      </nav>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#080910" }}>
+      {nav}
 
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 40px" }}>
         {/* Header */}

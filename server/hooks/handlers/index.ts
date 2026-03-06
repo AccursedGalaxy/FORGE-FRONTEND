@@ -1,14 +1,14 @@
 import { emitter } from "../index.ts";
-// Future: import { llmHandler } from "./llm.ts";
-// Future: import { claudeCodeHandler } from "./claude-code.ts";
+import * as ai from "./ai.ts";
 
 emitter.on("task:created", (data) => {
   console.log("[hook] task:created", data.card.id, `"${data.card.title}"`);
-  // TODO: trigger LLM suggestion, Claude Code, etc.
+  ai.onTaskCreated(data);
 });
 
 emitter.on("task:moved", (data) => {
   console.log("[hook] task:moved", data.card.id, `${data.fromColId} → ${data.toColId}`);
+  ai.onTaskMoved(data);
 });
 
 emitter.on("task:updated", (data) => {
@@ -21,6 +21,7 @@ emitter.on("task:deleted", (data) => {
 
 emitter.on("project:created", (data) => {
   console.log("[hook] project:created", data.project.id, `"${data.project.name}"`);
+  ai.onProjectCreated(data);
 });
 
 emitter.on("project:updated", (data) => {
