@@ -13,6 +13,7 @@ import { projectsRouter } from "./routes/projects.ts";
 import { cardsRouter } from "./routes/cards.ts";
 import { eventsRouter } from "./routes/events.ts";
 import { settingsRouter } from "./routes/settings.ts";
+import { docsRouter } from "./routes/docs.ts";
 
 const app = new Hono();
 
@@ -20,6 +21,7 @@ app.use("*", logger());
 app.use("/api/*", cors());
 
 app.route("/api/projects", projectsRouter);
+app.route("/api/projects/:id/docs", docsRouter);
 app.route("/api/cards", cardsRouter);
 app.route("/api/events", eventsRouter);
 app.route("/api/settings", settingsRouter);

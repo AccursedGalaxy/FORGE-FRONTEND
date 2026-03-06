@@ -184,6 +184,8 @@ cardsRouter.post("/:id/claude/trigger", async (c) => {
     id: projectRow.id,
     name: projectRow.name,
     projectPath: projectRow.projectPath ?? "",
+    readme: projectRow.readme ?? "",
+    spec: projectRow.spec ?? "",
   };
   const card = formatCard(cardRow);
 
@@ -247,6 +249,8 @@ cardsRouter.post("/:id/plan/trigger", async (c) => {
     id: projectRow.id,
     name: projectRow.name,
     projectPath: projectRow.projectPath ?? "",
+    readme: projectRow.readme ?? "",
+    spec: projectRow.spec ?? "",
   };
   const card = formatCard(cardRow);
   const prompt = buildPlanPrompt(card, project);
@@ -305,6 +309,8 @@ cardsRouter.post("/:id/plan/reply", async (c) => {
     id: projectRow.id,
     name: projectRow.name,
     projectPath: projectRow.projectPath ?? "",
+    readme: projectRow.readme ?? "",
+    spec: projectRow.spec ?? "",
   };
 
   await resumePlanSession(id, cardRow.planSessionId, body.prompt, project, cardRow.planContent ?? "");

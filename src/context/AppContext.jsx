@@ -395,6 +395,14 @@ export function AppProvider({ children }) {
     setProjects((prev) => prev.map((p) => (p.id === id ? project : p)));
   }
 
+  async function getProjectDocs(id) {
+    return safeApi(() => api.get(`/api/projects/${id}/docs`));
+  }
+
+  async function saveProjectDocs(id, { readme, spec }) {
+    return safeApi(() => api.patch(`/api/projects/${id}/docs`, { readme, spec }));
+  }
+
   async function deleteProject(id) {
     const result = await safeApi(() => api.del(`/api/projects/${id}`));
     if (result === null) return;
@@ -542,6 +550,8 @@ export function AppProvider({ children }) {
     addProject,
     updateProject,
     deleteProject,
+    getProjectDocs,
+    saveProjectDocs,
     moveCard,
     addCard,
     updateCard,

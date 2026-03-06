@@ -56,6 +56,8 @@ for (const stmt of [
   `ALTER TABLE cards ADD COLUMN plan_session_id TEXT DEFAULT NULL`,
   `ALTER TABLE cards ADD COLUMN plan_status TEXT DEFAULT NULL`,
   `ALTER TABLE cards ADD COLUMN plan_content TEXT DEFAULT ''`,
+  `ALTER TABLE projects ADD COLUMN readme TEXT DEFAULT ''`,
+  `ALTER TABLE projects ADD COLUMN spec TEXT DEFAULT ''`,
 ]) {
   try {
     sqlite.exec(stmt);

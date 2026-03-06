@@ -10,6 +10,8 @@ export const projects = sqliteTable("projects", {
   tag: text("tag").default("General"),
   claudeEnabled: integer("claude_enabled").default(0),
   projectPath: text("project_path").default(""),
+  readme: text("readme").default(""),
+  spec: text("spec").default(""),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });

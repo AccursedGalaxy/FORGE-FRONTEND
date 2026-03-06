@@ -12,6 +12,13 @@ export interface Project {
   projectPath: string;
 }
 
+export interface ProjectDocs {
+  readme: string;
+  spec: string;
+  readmeFromDisk: boolean;
+  specFromDisk: boolean;
+}
+
 export interface Card {
   id: string;
   title: string;

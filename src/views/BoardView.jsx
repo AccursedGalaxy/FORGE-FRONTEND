@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { KanbanColumn } from "../components/kanban/KanbanColumn";
 import { CardModal } from "../components/kanban/CardModal";
 import { AddCardModal } from "../components/kanban/AddCardModal";
+import { DocsModal } from "../components/kanban/DocsModal";
 
 export function BoardView({ projectId, onBack }) {
   const { projects, getBoard, boardsLoading, moveCard, addCard, updateCard, deleteCard } = useApp();
@@ -12,6 +13,7 @@ export function BoardView({ projectId, onBack }) {
 
   const [selectedCard, setSelectedCard] = useState(null); // { card, colId }
   const [addingToCol, setAddingToCol] = useState(null);
+  const [showDocs, setShowDocs] = useState(false);
 
   // ── Drag state ────────────────────────────────────────────────────────────
   const [dragging, setDragging] = useState(null); // { cardId, colId }
@@ -216,6 +218,32 @@ export function BoardView({ projectId, onBack }) {
       <div style={{ flex: 1 }} />
 
       <button
+        onClick={() => setShowDocs(true)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
+          e.currentTarget.style.color = "rgba(255,255,255,0.8)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+          e.currentTarget.style.color = "rgba(255,255,255,0.5)";
+        }}
+        style={{
+          background: "transparent",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 8,
+          padding: "5px 12px",
+          cursor: "pointer",
+          color: "rgba(255,255,255,0.5)",
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: "0.04em",
+          transition: "all 0.15s",
+        }}
+      >
+        Docs
+      </button>
+
+      <button
         onClick={() => setAddingToCol("todo")}
         style={{
           background: "#6366f1",
@@ -298,6 +326,14 @@ export function BoardView({ projectId, onBack }) {
           colId={addingToCol}
           onClose={() => setAddingToCol(null)}
           onAdd={(data) => handleAddCard(addingToCol, data)}
+        />
+      )}
+
+      {showDocs && (
+        <DocsModal
+          projectId={projectId}
+          project={project}
+          onClose={() => setShowDocs(false)}
         />
       )}
     </div>
