@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { ProjectCard } from "../components/overview/ProjectCard";
 import { NewProjectModal } from "../components/overview/NewProjectModal";
+import { EditProjectModal } from "../components/overview/EditProjectModal";
 import { Avatar } from "../components/Avatar";
 
 export function Overview({ onOpenProject }) {
-  const { projects, addProject } = useApp();
+  const { projects, addProject, updateProject, deleteProject } = useApp();
   const [filter, setFilter] = useState("All");
   const [showNewProject, setShowNewProject] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
 
   const tags = ["All", ...new Set(projects.map((p) => p.tag).filter(Boolean))];
   const filtered = filter === "All" ? projects : projects.filter((p) => p.tag === filter);
@@ -210,7 +212,13 @@ export function Overview({ onOpenProject }) {
             }}
           >
             {filtered.map((p) => (
-              <ProjectCard key={p.id} project={p} onClick={() => onOpenProject(p.id)} />
+              <ProjectCard
+                key={p.id}
+                project={p}
+                onClick={() => onOpenProject(p.id)}
+                onEdit={(proj) => setEditingProject(proj)}
+                onDelete={(id) => deleteProject(id)}
+              />
             ))}
           </div>
         )}
@@ -220,6 +228,13 @@ export function Overview({ onOpenProject }) {
         <NewProjectModal
           onClose={() => setShowNewProject(false)}
           onAdd={addProject}
+        />
+      )}
+      {editingProject && (
+        <EditProjectModal
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+          onSave={(fields) => updateProject(editingProject.id, fields)}
         />
       )}
     </div>

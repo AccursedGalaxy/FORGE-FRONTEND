@@ -1,32 +1,176 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Avatar } from "../Avatar";
 
-export function ProjectCard({ project, onClick }) {
+const menuItemStyle = {
+  display: "block",
+  width: "100%",
+  background: "transparent",
+  border: "none",
+  borderRadius: 6,
+  padding: "6px 10px",
+  cursor: "pointer",
+  color: "rgba(255,255,255,0.7)",
+  fontSize: 12,
+  fontWeight: 600,
+  textAlign: "left",
+  transition: "background 0.1s",
+};
+
+export function ProjectCard({ project, onClick, onEdit, onDelete }) {
   const [hover, setHover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(false);
+  const menuRef = useRef(null);
   const total = Object.values(project.tasks).reduce((a, b) => a + b, 0);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+        setDeleteStep(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
 
   return (
     <div
-      onClick={onClick}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseLeave={() => { setHover(false); }}
       style={{
-        background: hover ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.025)",
-        border: hover
-          ? `1px solid ${project.color}55`
-          : "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 14,
-        padding: "22px 24px",
-        cursor: "pointer",
+        position: "relative",
         transition: "all 0.2s ease",
         transform: hover ? "translateY(-2px)" : "none",
-        boxShadow: hover
-          ? `0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px ${project.color}22`
-          : "none",
-        position: "relative",
-        overflow: "hidden",
+        borderRadius: 14,
       }}
     >
+      {/* Kebab menu button */}
+      <div
+        ref={menuRef}
+        style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen((o) => !o);
+            setDeleteStep(false);
+          }}
+          style={{
+            background: menuOpen ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.0)",
+            border: "none",
+            borderRadius: 6,
+            width: 28,
+            height: 28,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: hover || menuOpen ? 1 : 0,
+            transition: "opacity 0.15s, background 0.15s",
+            color: "rgba(255,255,255,0.6)",
+            fontSize: 16,
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          ···
+        </button>
+        {menuOpen && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              top: 32,
+              right: 0,
+              background: "#1a1b26",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 10,
+              padding: 6,
+              minWidth: deleteStep ? 150 : 120,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+              zIndex: 20,
+            }}
+          >
+            {!deleteStep ? (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onEdit(project);
+                  }}
+                  style={menuItemStyle}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteStep(true);
+                  }}
+                  style={{ ...menuItemStyle, color: "#ef4444" }}
+                >
+                  Delete
+                </button>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "rgba(255,255,255,0.4)",
+                    padding: "4px 8px 6px",
+                    fontWeight: 600,
+                  }}
+                >
+                  Are you sure?
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    setDeleteStep(false);
+                    onDelete(project.id);
+                  }}
+                  style={{ ...menuItemStyle, color: "#ef4444", fontWeight: 700 }}
+                >
+                  Yes, Delete
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteStep(false);
+                  }}
+                  style={menuItemStyle}
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      {/* Inner card — overflow:hidden clips the accent line to rounded corners */}
+      <div
+        onClick={onClick}
+        style={{
+          background: hover ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.025)",
+          border: hover
+            ? `1px solid ${project.color}55`
+            : "1px solid rgba(255,255,255,0.07)",
+          borderRadius: 14,
+          padding: "22px 24px",
+          cursor: "pointer",
+          boxShadow: hover
+            ? `0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px ${project.color}22`
+            : "none",
+          position: "relative",
+          overflow: "hidden",
+          transition: "background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease",
+        }}
+      >
       {/* Top accent line */}
       <div
         style={{
@@ -199,6 +343,7 @@ export function ProjectCard({ project, onClick }) {
         >
           {total} tasks
         </span>
+      </div>
       </div>
     </div>
   );
