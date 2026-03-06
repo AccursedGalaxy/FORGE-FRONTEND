@@ -10,8 +10,9 @@ export function KanbanCard({
   isDragOver, isDragging,
   onClick,
 }) {
-  const { claudeState } = useApp();
+  const { claudeState, planState } = useApp();
   const claudeStatus = claudeState[card.id]?.status ?? card.claudeStatus ?? null;
+  const planStatus = planState[card.id]?.status ?? card.planStatus ?? null;
 
   const [hover, setHover] = useState(false);
   const trackRef = useRef(null);
@@ -122,7 +123,44 @@ export function KanbanCard({
         >
           {card.title}
         </p>
-        {claudeStatus === "running" && (
+        {colId === "todo" && planStatus === "running" && (
+          <span title="Claude is planning this task…" style={{
+            flexShrink: 0,
+            marginTop: 3,
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#34d399",
+            boxShadow: "0 0 0 0 rgba(52,211,153,0.6)",
+            animation: "claudePulse 1.4s ease-in-out infinite",
+            display: "inline-block",
+          }} />
+        )}
+        {colId === "todo" && planStatus === "done" && (
+          <span title="Plan ready — open card to view" style={{
+            flexShrink: 0,
+            marginTop: 3,
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#34d399",
+            display: "inline-block",
+            opacity: 0.6,
+          }} />
+        )}
+        {colId === "todo" && planStatus === "error" && (
+          <span title="Plan errored — open card to retry" style={{
+            flexShrink: 0,
+            marginTop: 3,
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#f87171",
+            display: "inline-block",
+            opacity: 0.7,
+          }} />
+        )}
+        {colId !== "todo" && claudeStatus === "running" && (
           <span title="Claude is working on this…" style={{
             flexShrink: 0,
             marginTop: 3,
@@ -135,7 +173,7 @@ export function KanbanCard({
             display: "inline-block",
           }} />
         )}
-        {claudeStatus === "error" && (
+        {colId !== "todo" && claudeStatus === "error" && (
           <span title="Claude errored — click to retry" style={{
             flexShrink: 0,
             marginTop: 3,

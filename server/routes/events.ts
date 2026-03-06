@@ -14,6 +14,7 @@ const EVENT_TYPES = [
   "task:created", "task:moved", "task:updated", "task:deleted",
   "project:created", "project:updated", "project:deleted",
   "claude:start", "claude:stream", "claude:done", "claude:error",
+  "plan:start", "plan:stream", "plan:done", "plan:error",
 ] as const;
 
 for (const type of EVENT_TYPES) {

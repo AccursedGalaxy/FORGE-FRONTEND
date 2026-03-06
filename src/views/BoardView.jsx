@@ -297,7 +297,10 @@ export function BoardView({ projectId, onBack }) {
 
       {selectedCard && (
         <CardModal
-          card={selectedCard.card}
+          card={
+            board?.columns.flatMap((c) => c.cards).find((c) => c.id === selectedCard.card.id)
+            ?? selectedCard.card
+          }
           colId={selectedCard.colId}
           projectId={projectId}
           project={project}

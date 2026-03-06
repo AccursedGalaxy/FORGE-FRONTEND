@@ -12,7 +12,11 @@ export type KairosEvent =
   | { type: "claude:start";  data: { cardId: string; projectId: string; sessionId?: string } }
   | { type: "claude:stream"; data: { cardId: string; chunk: string } }
   | { type: "claude:done";   data: { cardId: string; projectId: string; sessionId: string | null; notes: string } }
-  | { type: "claude:error";  data: { cardId: string; projectId: string; error: string } };
+  | { type: "claude:error";  data: { cardId: string; projectId: string; error: string } }
+  | { type: "plan:start";  data: { cardId: string; projectId: string; sessionId?: string } }
+  | { type: "plan:stream"; data: { cardId: string; chunk: string } }
+  | { type: "plan:done";   data: { cardId: string; projectId: string; sessionId: string | null; planContent: string } }
+  | { type: "plan:error";  data: { cardId: string; projectId: string; error: string } };
 
 /** Typed map from event name to its payload — used by hook handlers for type safety. */
 export type HookEventMap = {

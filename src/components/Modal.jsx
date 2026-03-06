@@ -4,7 +4,7 @@ import { useEffect } from "react";
  * Generic modal shell.
  * Usage: <Modal onClose={fn} title="..." width={480}> ...content </Modal>
  */
-export function Modal({ onClose, title, children, width = 480 }) {
+export function Modal({ onClose, title, children, width = 480, zIndex = 1000 }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
@@ -21,7 +21,7 @@ export function Modal({ onClose, title, children, width = 480 }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 1000,
+        zIndex,
         backdropFilter: "blur(8px)",
         padding: "20px",
       }}

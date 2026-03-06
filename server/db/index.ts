@@ -53,6 +53,9 @@ for (const stmt of [
   `ALTER TABLE cards ADD COLUMN claude_session_id TEXT DEFAULT NULL`,
   `ALTER TABLE cards ADD COLUMN claude_status TEXT DEFAULT NULL`,
   `ALTER TABLE cards ADD COLUMN claude_notes TEXT DEFAULT ''`,
+  `ALTER TABLE cards ADD COLUMN plan_session_id TEXT DEFAULT NULL`,
+  `ALTER TABLE cards ADD COLUMN plan_status TEXT DEFAULT NULL`,
+  `ALTER TABLE cards ADD COLUMN plan_content TEXT DEFAULT ''`,
 ]) {
   try {
     sqlite.exec(stmt);
@@ -69,6 +72,13 @@ const staleCount = sqlite.prepare(
 ).run();
 if (staleCount.changes > 0) {
   console.log(`[db] reset ${staleCount.changes} stale claude session(s) to 'error'`);
+}
+
+const stalePlanCount = sqlite.prepare(
+  `UPDATE cards SET plan_status = 'error' WHERE plan_status = 'running'`
+).run();
+if (stalePlanCount.changes > 0) {
+  console.log(`[db] reset ${stalePlanCount.changes} stale plan session(s) to 'error'`);
 }
 
 // ── Settings helpers ──────────────────────────────────────────────────────────

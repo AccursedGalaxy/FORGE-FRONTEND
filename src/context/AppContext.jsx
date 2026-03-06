@@ -48,6 +48,8 @@ export function AppProvider({ children }) {
   const [boardsLoading, setBoardsLoading] = useState(new Set());
   // claudeState: { [cardId]: { status, chunks, sessionId } }
   const [claudeState, setClaudeState] = useState({});
+  // planState: { [cardId]: { status, chunks, sessionId } }
+  const [planState, setPlanState] = useState({});
 
   // Ref guards duplicate in-flight board fetches (state updates are async)
   const boardLoadingRef = useRef(new Set());
@@ -225,6 +227,59 @@ export function AppProvider({ children }) {
 
       case "claude:error":
         setClaudeState((prev) => ({
+          ...prev,
+          [data.cardId]: { ...prev[data.cardId], status: "error" },
+        }));
+        break;
+
+      case "plan:start":
+        setPlanState((prev) => ({
+          ...prev,
+          [data.cardId]: {
+            status: "running",
+            chunks: [],
+            sessionId: data.sessionId ?? prev[data.cardId]?.sessionId ?? null,
+          },
+        }));
+        break;
+
+      case "plan:stream":
+        setPlanState((prev) => {
+          const entry = prev[data.cardId] ?? { status: "running", chunks: [], sessionId: null };
+          return { ...prev, [data.cardId]: { ...entry, chunks: [...entry.chunks, data.chunk] } };
+        });
+        break;
+
+      case "plan:done":
+        setPlanState((prev) => ({
+          ...prev,
+          [data.cardId]: {
+            ...prev[data.cardId],
+            status: "done",
+            chunks: [],
+            sessionId: data.sessionId ?? prev[data.cardId]?.sessionId ?? null,
+          },
+        }));
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          return {
+            ...prev,
+            [data.projectId]: {
+              ...board,
+              columns: board.columns.map((col) => ({
+                ...col,
+                cards: col.cards.map((c) =>
+                  c.id !== data.cardId ? c : { ...c, planStatus: "done", planContent: data.planContent, planSessionId: data.sessionId }
+                ),
+              })),
+            },
+          };
+        });
+        break;
+
+      case "plan:error":
+        setPlanState((prev) => ({
           ...prev,
           [data.cardId]: { ...prev[data.cardId], status: "error" },
         }));
@@ -418,6 +473,7 @@ export function AppProvider({ children }) {
     loading,
     boardsLoading,
     claudeState,
+    planState,
     getBoard,
     addProject,
     updateProject,

@@ -4,7 +4,7 @@ import { db, sqlite } from "../db/index.ts";
 import { cards, projects } from "../db/schema.ts";
 import { emit } from "../hooks/index.ts";
 import { broadcast } from "./events.ts";
-import { activeSessions, spawnSession, resumeSession, buildPrompt } from "../claude/runner.ts";
+import { activeSessions, activePlanSessions, spawnSession, resumeSession, buildPrompt, spawnPlanSession, resumePlanSession, buildPlanPrompt } from "../claude/runner.ts";
 import type { Card } from "../types.ts";
 
 export const cardsRouter = new Hono();
@@ -21,6 +21,9 @@ export function formatCard(row: typeof cards.$inferSelect): Card {
     claudeSessionId: row.claudeSessionId ?? null,
     claudeStatus: row.claudeStatus ?? null,
     claudeNotes: row.claudeNotes ?? "",
+    planSessionId: row.planSessionId ?? null,
+    planStatus: row.planStatus ?? null,
+    planContent: row.planContent ?? "",
   };
 }
 
@@ -218,6 +221,93 @@ cardsRouter.post("/:id/claude/abort", async (c) => {
     broadcast("claude:error", { cardId: id, projectId: cardRow.projectId, error: "aborted by user" });
   }
 
+  return c.json({ ok: true });
+});
+
+// ── POST /api/cards/:id/plan/trigger ─────────────────────────────────────────
+
+cardsRouter.post("/:id/plan/trigger", async (c) => {
+  const id = c.req.param("id");
+
+  if (activePlanSessions.has(id)) {
+    return c.json({ error: "plan session already running" }, 409);
+  }
+
+  const [cardRow] = await db.select().from(cards).where(eq(cards.id, id));
+  if (!cardRow) return c.json({ error: "not found" }, 404);
+
+  const [projectRow] = await db.select().from(projects).where(eq(projects.id, cardRow.projectId));
+  if (!projectRow) return c.json({ error: "project not found" }, 404);
+
+  if (!projectRow.claudeEnabled) {
+    return c.json({ error: "claude not enabled for this project" }, 403);
+  }
+
+  const project = {
+    id: projectRow.id,
+    name: projectRow.name,
+    projectPath: projectRow.projectPath ?? "",
+  };
+  const card = formatCard(cardRow);
+  const prompt = buildPlanPrompt(card, project);
+  await spawnPlanSession(card, project, prompt);
+
+  return c.json({ ok: true });
+});
+
+// ── POST /api/cards/:id/plan/abort ────────────────────────────────────────────
+
+cardsRouter.post("/:id/plan/abort", async (c) => {
+  const id = c.req.param("id");
+  const proc = activePlanSessions.get(id);
+
+  if (!proc) {
+    return c.json({ error: "no active plan session" }, 404);
+  }
+
+  proc.kill("SIGTERM");
+  activePlanSessions.delete(id);
+
+  await db
+    .update(cards)
+    .set({ planStatus: null, updatedAt: Date.now() })
+    .where(eq(cards.id, id));
+
+  const [cardRow] = await db.select().from(cards).where(eq(cards.id, id));
+  if (cardRow) {
+    broadcast("plan:error", { cardId: id, projectId: cardRow.projectId, error: "aborted by user" });
+  }
+
+  return c.json({ ok: true });
+});
+
+// ── POST /api/cards/:id/plan/reply ────────────────────────────────────────────
+
+cardsRouter.post("/:id/plan/reply", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{ prompt: string }>();
+
+  if (!body.prompt?.trim()) {
+    return c.json({ error: "prompt required" }, 400);
+  }
+  if (activePlanSessions.has(id)) {
+    return c.json({ error: "plan session already running" }, 409);
+  }
+
+  const [cardRow] = await db.select().from(cards).where(eq(cards.id, id));
+  if (!cardRow) return c.json({ error: "not found" }, 404);
+  if (!cardRow.planSessionId) return c.json({ error: "no plan session to resume" }, 400);
+
+  const [projectRow] = await db.select().from(projects).where(eq(projects.id, cardRow.projectId));
+  if (!projectRow) return c.json({ error: "project not found" }, 404);
+
+  const project = {
+    id: projectRow.id,
+    name: projectRow.name,
+    projectPath: projectRow.projectPath ?? "",
+  };
+
+  await resumePlanSession(id, cardRow.planSessionId, body.prompt, project, cardRow.planContent ?? "");
   return c.json({ ok: true });
 });
 

@@ -30,6 +30,9 @@ export const cards = sqliteTable("cards", {
   claudeSessionId: text("claude_session_id"),
   claudeStatus: text("claude_status"),
   claudeNotes: text("claude_notes").default(""),
+  planSessionId: text("plan_session_id"),
+  planStatus: text("plan_status"),
+  planContent: text("plan_content").default(""),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });

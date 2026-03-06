@@ -23,6 +23,9 @@ export interface Card {
   claudeSessionId: string | null;
   claudeStatus: string | null;
   claudeNotes: string;
+  planSessionId: string | null;
+  planStatus: string | null;
+  planContent: string;
 }
 
 export interface Column {

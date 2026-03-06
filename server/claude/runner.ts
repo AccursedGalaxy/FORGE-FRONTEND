@@ -13,6 +13,7 @@ const anthropic = new Anthropic();
 // ── Active session registry ───────────────────────────────────────────────────
 
 export const activeSessions = new Map<string, ChildProcess>();
+export const activePlanSessions = new Map<string, ChildProcess>();
 
 function killAllSessions() {
   for (const [cardId, proc] of activeSessions) {
@@ -20,6 +21,11 @@ function killAllSessions() {
     proc.kill("SIGTERM");
   }
   activeSessions.clear();
+  for (const [cardId, proc] of activePlanSessions) {
+    console.log(`[claude] killing plan session for card ${cardId} on shutdown`);
+    proc.kill("SIGTERM");
+  }
+  activePlanSessions.clear();
 }
 
 process.on("SIGTERM", killAllSessions);
@@ -40,6 +46,9 @@ function fmtCard(row: typeof cards.$inferSelect): Card {
     claudeSessionId: row.claudeSessionId ?? null,
     claudeStatus: row.claudeStatus ?? null,
     claudeNotes: row.claudeNotes ?? "",
+    planSessionId: row.planSessionId ?? null,
+    planStatus: row.planStatus ?? null,
+    planContent: row.planContent ?? "",
   };
 }
 
@@ -305,6 +314,161 @@ export async function resumeSession(
   runSession(cardId, project, args, cardRow.description ?? "", cardRow.title);
 }
 
+// ── Plan session runner ───────────────────────────────────────────────────────
+
+function runPlanSession(
+  cardId: string,
+  project: { id: string; projectPath: string },
+  args: string[],
+  cardTitle: string,
+  existingPlanContent: string = "",
+) {
+  const binPath = getSettingValue("claude_bin_path", "claude");
+  const cwd = project.projectPath || undefined;
+
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => k !== "CLAUDECODE")
+  ) as NodeJS.ProcessEnv;
+
+  console.log(`[plan] spawning for card ${cardId} cwd=${cwd ?? process.cwd()}`);
+  const proc = spawn(binPath, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+  activePlanSessions.set(cardId, proc);
+
+  proc.on("spawn", () => {
+    console.log(`[plan] process spawned (pid=${proc.pid}) for card ${cardId}`);
+  });
+
+  proc.on("error", (err) => {
+    console.error(`[plan] failed to spawn for card ${cardId}:`, err.message);
+    activePlanSessions.delete(cardId);
+    db.update(cards).set({ planStatus: "error", updatedAt: Date.now() }).where(eq(cards.id, cardId));
+    broadcast("plan:error", { cardId, projectId: project.id, error: err.message });
+  });
+
+  const textChunks: string[] = [];
+  const blockTypes = new Map<number, string>();
+  let newSessionId: string | undefined;
+
+  const rl = createInterface({ input: proc.stdout });
+  rl.on("line", async (line) => {
+    if (!line.trim()) return;
+    try {
+      const msg = JSON.parse(line);
+
+      if (msg.type === "system" && msg.subtype === "init") {
+        newSessionId = msg.session_id as string | undefined;
+        if (newSessionId) {
+          await db.update(cards).set({ planSessionId: newSessionId }).where(eq(cards.id, cardId));
+        }
+        broadcast("plan:start", { cardId, projectId: project.id, sessionId: newSessionId });
+
+      } else if (msg.type === "stream_event") {
+        const ev = msg.event;
+
+        if (ev?.type === "content_block_start") {
+          const block = ev.content_block;
+          blockTypes.set(ev.index, block.type);
+          if (block.type === "tool_use") {
+            broadcast("plan:stream", { cardId, chunk: `\n⚡ ${block.name}\n` });
+          }
+
+        } else if (ev?.type === "content_block_delta") {
+          const blockType = blockTypes.get(ev.index);
+          const delta = ev.delta;
+          if (blockType === "text" && delta?.type === "text_delta" && delta.text) {
+            textChunks.push(delta.text);
+            broadcast("plan:stream", { cardId, chunk: delta.text });
+          }
+        } else if (ev?.type === "content_block_stop") {
+          blockTypes.delete(ev.index);
+        }
+      }
+    } catch { /* non-JSON line */ }
+  });
+
+  proc.stderr.on("data", (data: Buffer) => {
+    const text = data.toString();
+    console.error(`[plan] stderr (${cardId}):`, text.trimEnd());
+    broadcast("plan:stream", { cardId, chunk: `\n⚠ ${text.trimEnd()}\n` });
+  });
+
+  proc.on("exit", async (code) => {
+    console.log(`[plan] process exit (${cardId}) code=${code}`);
+    activePlanSessions.delete(cardId);
+
+    if (code === 0) {
+      const newText = textChunks.join("");
+      const fullContent = existingPlanContent
+        ? existingPlanContent + "\n\n" + newText
+        : newText;
+
+      await db
+        .update(cards)
+        .set({ planStatus: "done", planContent: fullContent, updatedAt: Date.now() })
+        .where(eq(cards.id, cardId));
+
+      broadcast("plan:done", {
+        cardId,
+        projectId: project.id,
+        sessionId: newSessionId ?? null,
+        planContent: fullContent,
+      });
+    } else {
+      await db
+        .update(cards)
+        .set({ planStatus: "error", updatedAt: Date.now() })
+        .where(eq(cards.id, cardId));
+      broadcast("plan:error", { cardId, projectId: project.id, error: `Process exited with code ${code}` });
+    }
+  });
+}
+
+export async function spawnPlanSession(
+  card: Card,
+  project: { id: string; name: string; projectPath: string },
+  prompt: string,
+) {
+  if (activePlanSessions.has(card.id)) return;
+
+  const args = [
+    "-p", prompt,
+    "--output-format", "stream-json",
+    "--include-partial-messages",
+    "--verbose",
+    "--allowedTools", "Bash,Glob,Grep,Read,LS",
+  ];
+
+  await db.update(cards).set({ planStatus: "running", updatedAt: Date.now() }).where(eq(cards.id, card.id));
+
+  runPlanSession(card.id, project, args, card.title);
+}
+
+export async function resumePlanSession(
+  cardId: string,
+  sessionId: string,
+  prompt: string,
+  project: { id: string; name: string; projectPath: string },
+  existingPlanContent: string = "",
+) {
+  if (activePlanSessions.has(cardId)) return;
+
+  const [cardRow] = await db.select().from(cards).where(eq(cards.id, cardId));
+  if (!cardRow) return;
+
+  const args = [
+    "--resume", sessionId,
+    "-p", prompt,
+    "--output-format", "stream-json",
+    "--include-partial-messages",
+    "--verbose",
+    "--allowedTools", "Bash,Glob,Grep,Read,LS",
+  ];
+
+  await db.update(cards).set({ planStatus: "running", updatedAt: Date.now() }).where(eq(cards.id, cardId));
+
+  runPlanSession(cardId, project, args, cardRow.title, existingPlanContent);
+}
+
 // ── Prompt builder ────────────────────────────────────────────────────────────
 
 export function buildPrompt(card: Card, project: { name: string; projectPath: string }): string {
@@ -318,6 +482,37 @@ export function buildPrompt(card: Card, project: { name: string; projectPath: st
   if (card.tags.length) lines.push(`Tags: ${card.tags.join(", ")}`);
   if (card.assignee) lines.push(`Assignee: ${card.assignee}`);
   if (card.description) lines.push(``, `Description:`, card.description);
-  lines.push(``, `Please complete this task.`);
+  if (card.planContent) lines.push(``, `## Implementation Plan`, ``, card.planContent);
+  lines.push(``, `Please complete this task. Follow the implementation plan above if one is provided.`);
+  return lines.join("\n");
+}
+
+export function buildPlanPrompt(card: Card, project: { name: string; projectPath: string }): string {
+  const lines = [
+    `You are in PLANNING MODE for the project "${project.name}" at: ${project.projectPath || "(no path set)"}`,
+    ``,
+    `Analyze the codebase and produce a detailed implementation plan for this task.`,
+    `Do NOT make any code changes, write or edit any files, or run state-modifying commands.`,
+    `Do NOT ask questions — make reasonable assumptions and document them explicitly.`,
+    ``,
+    `Task: ${card.title}`,
+    `Priority: ${card.priority}`,
+  ];
+  if (card.due) lines.push(`Due: ${card.due}`);
+  if (card.tags.length) lines.push(`Tags: ${card.tags.join(", ")}`);
+  if (card.assignee) lines.push(`Assignee: ${card.assignee}`);
+  if (card.description) lines.push(``, `Description:`, card.description);
+  lines.push(
+    ``,
+    `Output a markdown plan with these sections:`,
+    `## Overview`,
+    `## Assumptions`,
+    `## Files to Change`,
+    `## New Files`,
+    `## Implementation Steps`,
+    `## Potential Risks`,
+    ``,
+    `Output only the markdown. No preamble or sign-off.`,
+  );
   return lines.join("\n");
 }

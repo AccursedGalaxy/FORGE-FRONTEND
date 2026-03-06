@@ -1,28 +1,25 @@
 import { useRef, useEffect, useState } from "react";
 import { useApp } from "../../context/AppContext";
-import { StyledOutput, Spinner } from "./ClaudeOutput";
+import { Spinner } from "./ClaudeOutput";
 
-export function ClaudePanel({ card }) {
-  const { claudeState } = useApp();
-  const state = claudeState[card.id] ?? {
-    status: card.claudeStatus ?? null,
+export function PlanPanel({ card, onViewPlan }) {
+  const { planState } = useApp();
+  const state = planState[card.id] ?? {
+    status: card.planStatus ?? null,
     chunks: [],
-    sessionId: card.claudeSessionId ?? null,
+    sessionId: card.planSessionId ?? null,
   };
 
   const outputRef = useRef(null);
   const prevStatusRef = useRef(state.status);
   const [pending, setPending] = useState(false);
-  const [resumePrompt, setResumePrompt] = useState("");
 
-  // Auto-scroll output
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [state.chunks]);
 
-  // Clear pending once SSE confirms claude started or errored
   useEffect(() => {
     if (pending && state.status !== prevStatusRef.current) {
       setPending(false); // eslint-disable-line react-hooks/set-state-in-effect
@@ -30,37 +27,19 @@ export function ClaudePanel({ card }) {
     prevStatusRef.current = state.status;
   }, [state.status, pending]);
 
-  async function handleTrigger() {
+  async function handlePlan() {
     setPending(true);
-    const res = await fetch(`/api/cards/${card.id}/claude/trigger`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
+    const res = await fetch(`/api/cards/${card.id}/plan/trigger`, { method: "POST" });
     if (!res.ok) setPending(false);
   }
 
   async function handleAbort() {
-    await fetch(`/api/cards/${card.id}/claude/abort`, { method: "POST" });
-  }
-
-  async function handleResume() {
-    if (!resumePrompt.trim()) return;
-    setPending(true);
-    const res = await fetch(`/api/cards/${card.id}/claude/trigger`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: resumePrompt }),
-    });
-    if (!res.ok) {
-      setPending(false);
-    } else {
-      setResumePrompt("");
-    }
+    await fetch(`/api/cards/${card.id}/plan/abort`, { method: "POST" });
   }
 
   const isRunning = state.status === "running";
-  const output = state.chunks.join("");
+  const liveOutput = state.chunks.join("");
+  const hasPlan = card.planContent || liveOutput;
 
   return (
     <div
@@ -78,7 +57,7 @@ export function ClaudePanel({ card }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: output ? 10 : 0,
+          marginBottom: liveOutput ? 10 : 0,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -91,7 +70,7 @@ export function ClaudePanel({ card }) {
               color: "rgba(255,255,255,0.3)",
             }}
           >
-            Claude Code
+            Claude Planning
           </span>
           {(state.status || pending) && (
             <span
@@ -106,7 +85,7 @@ export function ClaudePanel({ card }) {
                   pending
                     ? "rgba(255,255,255,0.07)"
                     : state.status === "running"
-                    ? "rgba(99,102,241,0.15)"
+                    ? "rgba(16,185,129,0.12)"
                     : state.status === "done"
                     ? "rgba(16,185,129,0.15)"
                     : "rgba(239,68,68,0.15)",
@@ -114,7 +93,7 @@ export function ClaudePanel({ card }) {
                   pending
                     ? "rgba(255,255,255,0.3)"
                     : state.status === "running"
-                    ? "#818cf8"
+                    ? "#34d399"
                     : state.status === "done"
                     ? "#34d399"
                     : "#f87171",
@@ -126,16 +105,21 @@ export function ClaudePanel({ card }) {
         </div>
 
         <div style={{ display: "flex", gap: 6 }}>
+          {hasPlan && !isRunning && (
+            <button onClick={onViewPlan} style={viewBtn}>
+              View Plan
+            </button>
+          )}
           {isRunning ? (
             <button onClick={handleAbort} style={abortBtn}>
               Abort
             </button>
           ) : (
             <button
-              onClick={handleTrigger}
+              onClick={handlePlan}
               disabled={pending}
               style={{
-                ...triggerBtn,
+                ...planBtn,
                 opacity: pending ? 0.6 : 1,
                 cursor: pending ? "default" : "pointer",
                 display: "flex",
@@ -144,21 +128,21 @@ export function ClaudePanel({ card }) {
               }}
             >
               {pending && <Spinner />}
-              {state.status === "done" || state.status === "error" ? "Re-run" : "Run"}
+              {state.status === "done" || state.status === "error" ? "Re-plan" : "Plan"}
             </button>
           )}
         </div>
       </div>
 
-      {/* Output */}
-      {output && (
+      {/* Live stream output while planning */}
+      {liveOutput && (
         <div
           ref={outputRef}
           style={{
             fontFamily: "'DM Mono', monospace",
             fontSize: 11,
             lineHeight: 1.6,
-            maxHeight: 420,
+            maxHeight: 200,
             overflowY: "auto",
             background: "rgba(0,0,0,0.2)",
             border: "1px solid rgba(255,255,255,0.05)",
@@ -166,17 +150,17 @@ export function ClaudePanel({ card }) {
             padding: "8px 10px",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
-            marginTop: 10,
+            color: "rgba(255,255,255,0.6)",
           }}
         >
-          <StyledOutput text={output} />
+          {liveOutput}
           {isRunning && (
             <span
               style={{
                 display: "inline-block",
                 width: 7,
                 height: 12,
-                background: "#818cf8",
+                background: "#34d399",
                 marginLeft: 2,
                 animation: "blink 1s step-end infinite",
                 verticalAlign: "text-bottom",
@@ -185,55 +169,17 @@ export function ClaudePanel({ card }) {
           )}
         </div>
       )}
-
-      {/* Resume input — shown when done/error and a session exists */}
-      {!isRunning && !pending && state.sessionId && (
-        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-          <input
-            value={resumePrompt}
-            onChange={(e) => setResumePrompt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleResume()}
-            placeholder="Follow-up prompt…"
-            style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 6,
-              padding: "6px 10px",
-              color: "rgba(255,255,255,0.7)",
-              fontSize: 12,
-              fontFamily: "'DM Mono', monospace",
-              outline: "none",
-            }}
-          />
-          <button
-            onClick={handleResume}
-            disabled={pending}
-            style={{
-              ...triggerBtn,
-              opacity: pending ? 0.6 : 1,
-              cursor: pending ? "default" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            {pending && <Spinner />}
-            Resume
-          </button>
-        </div>
-      )}
     </div>
   );
 }
 
-const triggerBtn = {
-  background: "#6366f1",
-  border: "none",
+const planBtn = {
+  background: "rgba(16,185,129,0.15)",
+  border: "1px solid rgba(16,185,129,0.3)",
   borderRadius: 6,
   padding: "5px 12px",
   cursor: "pointer",
-  color: "#fff",
+  color: "#34d399",
   fontSize: 11,
   fontWeight: 700,
   letterSpacing: "0.04em",
@@ -246,6 +192,18 @@ const abortBtn = {
   padding: "5px 12px",
   cursor: "pointer",
   color: "#f87171",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+};
+
+const viewBtn = {
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 6,
+  padding: "5px 12px",
+  cursor: "pointer",
+  color: "rgba(255,255,255,0.6)",
   fontSize: 11,
   fontWeight: 700,
   letterSpacing: "0.04em",
