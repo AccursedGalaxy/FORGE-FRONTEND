@@ -1,5 +1,65 @@
+/* ── Design token CSS custom properties ──────────────────────────────────── */
+:root {
+  --color-bg:            #080910;
+  --color-brand:         #6366f1;
+  --color-border:        rgba(255,255,255,0.07);
+  --color-surface:       rgba(255,255,255,0.03);
+  --color-text-primary:  rgba(255,255,255,0.92);
+  --color-text-muted:    rgba(255,255,255,0.35);
+
+  --col-min-width:        240px;
+  --col-max-width:        420px;
+  --overview-max-width:   1400px;
+  --board-padding-x:      clamp(16px, 2.5vw, 40px);
+  --overview-padding-x:   clamp(24px, 4vw, 80px);
+  --nav-padding-x:        clamp(16px, 3vw, 40px);
+}
+
+/* ── Board layout ────────────────────────────────────────────────────────── */
+.board-columns {
+  flex: 1;
+  overflow-x: auto;
+  padding: 28px var(--board-padding-x);
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  min-height: 0;
+}
+
+/* ── Overview layout ─────────────────────────────────────────────────────── */
+.overview-content {
+  max-width: var(--overview-max-width);
+  margin: 0 auto;
+  padding: 48px var(--overview-padding-x);
+}
+
+/* Stats: 4 cols → 2 on narrow */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+/* Projects: fluid grid that scales with viewport */
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(260px, 22vw, 360px), 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 700px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
+}
+
+html {
+  zoom: 1.1;
 }
 
 html, body, #root {

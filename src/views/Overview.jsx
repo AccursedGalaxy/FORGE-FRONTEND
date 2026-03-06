@@ -22,7 +22,7 @@ export function Overview({ onOpenProject }) {
     <nav
       style={{
         borderBottom: "1px solid rgba(255,255,255,0.07)",
-        padding: "0 40px",
+        padding: "0 clamp(16px, 3vw, 40px)",
         height: 58,
         display: "flex",
         alignItems: "center",
@@ -73,21 +73,14 @@ export function Overview({ onOpenProject }) {
     return (
       <div style={{ minHeight: "100vh", background: "#080910" }}>
         {nav}
-        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 40px" }}>
+        <div className="overview-content">
           {/* Header skeleton */}
           <div style={{ marginBottom: 40 }}>
             <div className="skeleton" style={{ width: 180, height: 34, borderRadius: 8, marginBottom: 10 }} />
             <div className="skeleton" style={{ width: 240, height: 14, borderRadius: 6 }} />
           </div>
           {/* Stats skeleton */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4,1fr)",
-              gap: 12,
-              marginBottom: 40,
-            }}
-          >
+          <div className="stats-grid">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="skeleton" style={{ borderRadius: 12, height: 72 }} />
             ))}
@@ -99,13 +92,7 @@ export function Overview({ onOpenProject }) {
             ))}
           </div>
           {/* Grid skeleton */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
-              gap: 16,
-            }}
-          >
+          <div className="projects-grid">
             {[0, 1, 2].map((i) => (
               <div key={i} className="skeleton" style={{ borderRadius: 14, height: 172 }} />
             ))}
@@ -119,7 +106,7 @@ export function Overview({ onOpenProject }) {
     <div style={{ minHeight: "100vh", background: "#080910" }}>
       {nav}
 
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 40px" }}>
+      <div className="overview-content">
         {/* Header */}
         <div style={{ marginBottom: 40 }}>
           <h1
@@ -140,14 +127,7 @@ export function Overview({ onOpenProject }) {
         </div>
 
         {/* Stats */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4,1fr)",
-            gap: 12,
-            marginBottom: 40,
-          }}
-        >
+        <div className="stats-grid">
           {[
             ["Projects", projects.length, "#6366f1"],
             ["Total Tasks", totalTasks, "#10b981"],
@@ -253,13 +233,7 @@ export function Overview({ onOpenProject }) {
             .
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
-              gap: 16,
-            }}
-          >
+          <div className="projects-grid">
             {filtered.map((p) => (
               <ProjectCard
                 key={p.id}

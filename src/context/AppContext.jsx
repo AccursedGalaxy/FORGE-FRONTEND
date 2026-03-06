@@ -188,6 +188,22 @@ export function AppProvider({ children }) {
             sessionId: data.sessionId ?? prev[data.cardId]?.sessionId ?? null,
           },
         }));
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          return {
+            ...prev,
+            [data.projectId]: {
+              ...board,
+              columns: board.columns.map((col) => ({
+                ...col,
+                cards: col.cards.map((c) =>
+                  c.id !== data.cardId ? c : { ...c, claudeStatus: "running" }
+                ),
+              })),
+            },
+          };
+        });
         break;
 
       case "claude:stream":
@@ -230,6 +246,22 @@ export function AppProvider({ children }) {
           ...prev,
           [data.cardId]: { ...prev[data.cardId], status: "error" },
         }));
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          return {
+            ...prev,
+            [data.projectId]: {
+              ...board,
+              columns: board.columns.map((col) => ({
+                ...col,
+                cards: col.cards.map((c) =>
+                  c.id !== data.cardId ? c : { ...c, claudeStatus: "error" }
+                ),
+              })),
+            },
+          };
+        });
         break;
 
       case "plan:start":
@@ -241,6 +273,22 @@ export function AppProvider({ children }) {
             sessionId: data.sessionId ?? prev[data.cardId]?.sessionId ?? null,
           },
         }));
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          return {
+            ...prev,
+            [data.projectId]: {
+              ...board,
+              columns: board.columns.map((col) => ({
+                ...col,
+                cards: col.cards.map((c) =>
+                  c.id !== data.cardId ? c : { ...c, planStatus: "running" }
+                ),
+              })),
+            },
+          };
+        });
         break;
 
       case "plan:stream":
@@ -283,6 +331,22 @@ export function AppProvider({ children }) {
           ...prev,
           [data.cardId]: { ...prev[data.cardId], status: "error" },
         }));
+        setBoards((prev) => {
+          const board = prev[data.projectId];
+          if (!board) return prev;
+          return {
+            ...prev,
+            [data.projectId]: {
+              ...board,
+              columns: board.columns.map((col) => ({
+                ...col,
+                cards: col.cards.map((c) =>
+                  c.id !== data.cardId ? c : { ...c, planStatus: "error" }
+                ),
+              })),
+            },
+          };
+        });
         break;
 
       default:

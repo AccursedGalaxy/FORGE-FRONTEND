@@ -285,6 +285,7 @@ export async function spawnSession(
   ];
 
   await db.update(cards).set({ claudeStatus: "running", updatedAt: Date.now() }).where(eq(cards.id, card.id));
+  broadcast("claude:start", { cardId: card.id, projectId: project.id, sessionId: null });
 
   runSession(card.id, project, args, card.description, card.title);
 }
@@ -310,6 +311,7 @@ export async function resumeSession(
   ];
 
   await db.update(cards).set({ claudeStatus: "running", updatedAt: Date.now() }).where(eq(cards.id, cardId));
+  broadcast("claude:start", { cardId, projectId: project.id, sessionId });
 
   runSession(cardId, project, args, cardRow.description ?? "", cardRow.title);
 }
@@ -439,6 +441,7 @@ export async function spawnPlanSession(
   ];
 
   await db.update(cards).set({ planStatus: "running", updatedAt: Date.now() }).where(eq(cards.id, card.id));
+  broadcast("plan:start", { cardId: card.id, projectId: project.id, sessionId: null });
 
   runPlanSession(card.id, project, args, card.title);
 }
@@ -465,6 +468,7 @@ export async function resumePlanSession(
   ];
 
   await db.update(cards).set({ planStatus: "running", updatedAt: Date.now() }).where(eq(cards.id, cardId));
+  broadcast("plan:start", { cardId, projectId: project.id, sessionId });
 
   runPlanSession(cardId, project, args, cardRow.title, existingPlanContent);
 }

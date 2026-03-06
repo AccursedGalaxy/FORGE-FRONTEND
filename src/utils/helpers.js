@@ -1,17 +1,5 @@
-export const PRIORITY_META = {
-  high:   { label: "High",   color: "#ef4444", dot: "#ef4444" },
-  medium: { label: "Medium", color: "#f59e0b", dot: "#f59e0b" },
-  low:    { label: "Low",    color: "#6b7280", dot: "#6b7280" },
-};
-
-export const COL_ACCENTS = {
-  todo:       "#6b7280",
-  inProgress: "#6366f1",
-  review:     "#f59e0b",
-  done:       "#10b981",
-};
-
-const TAG_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
+export { PRIORITY_META, COL_ACCENTS } from "../styles/tokens";
+import { TAG_COLORS } from "../styles/tokens";
 
 export function tagColor(tag) {
   const hash = Math.abs(tag.split("").reduce((a, c) => a + c.charCodeAt(0), 0));

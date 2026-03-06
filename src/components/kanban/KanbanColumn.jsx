@@ -1,5 +1,6 @@
 import { KanbanCard } from "./KanbanCard";
 import { COL_ACCENTS } from "../../utils/helpers";
+import { COLUMN } from "../../styles/tokens";
 
 export function KanbanColumn({
   col,
@@ -13,7 +14,7 @@ export function KanbanColumn({
   return (
     <div
       data-col-id={col.id}
-      style={{ width: 272, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}
+      style={{ flex: "1 0 " + COLUMN.minWidth + "px", minWidth: COLUMN.minWidth, maxWidth: COLUMN.maxWidth, display: "flex", flexDirection: "column", gap: 2 }}
     >
       {/* Header */}
       <div

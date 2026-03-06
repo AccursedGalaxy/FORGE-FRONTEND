@@ -238,18 +238,9 @@ export function BoardView({ projectId, onBack }) {
     return (
       <div style={{ minHeight: "100vh", background: "#080910", display: "flex", flexDirection: "column" }}>
         {topBar}
-        <div
-          style={{
-            flex: 1,
-            overflowX: "auto",
-            padding: "28px 32px",
-            display: "flex",
-            gap: 20,
-            alignItems: "flex-start",
-          }}
-        >
+        <div className="board-columns">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} style={{ width: 260, flexShrink: 0 }}>
+            <div key={i} style={{ flex: "1 0 240px", minWidth: 240, maxWidth: 420 }}>
               <div className="skeleton" style={{ height: 28, borderRadius: 8, marginBottom: 12 }} />
               {[0, 1, 2].map((j) => (
                 <div
@@ -270,16 +261,7 @@ export function BoardView({ projectId, onBack }) {
       {topBar}
 
       {/* Board */}
-      <div
-        style={{
-          flex: 1,
-          overflowX: "auto",
-          padding: "28px 32px",
-          display: "flex",
-          gap: 20,
-          alignItems: "flex-start",
-        }}
-      >
+      <div className="board-columns">
         {(board?.columns ?? []).map((col) => (
           <KanbanColumn
             key={col.id}
